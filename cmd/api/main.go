@@ -51,7 +51,8 @@ func main() {
 		log.Error("bootstrap_failed", "error", err)
 		os.Exit(1)
 	}
-	ln, err := net.Listen("tcp", ":"+cfg.AppPort)
+	var lc net.ListenConfig
+	ln, err := lc.Listen(ctx, "tcp", ":"+cfg.AppPort)
 	if err != nil {
 		log.Error("listen_failed", "error", err)
 		os.Exit(1)

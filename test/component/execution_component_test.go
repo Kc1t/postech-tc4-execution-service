@@ -201,7 +201,7 @@ func (e *env) call(method, path string, body any, headers map[string]string) (in
 	if err != nil {
 		e.t.Fatalf("%s %s: %v", method, path, err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	b, _ := io.ReadAll(resp.Body)
 	return resp.StatusCode, b
 }

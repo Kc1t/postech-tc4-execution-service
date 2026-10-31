@@ -218,7 +218,7 @@ func mapTxError(err error, roles []txItemRole, creating bool, osID string) error
 		var conflict *types.TransactionConflictException
 		var inProgress *types.TransactionInProgressException
 		if errors.As(err, &conflict) || errors.As(err, &inProgress) {
-			return fmt.Errorf("%w: os_id=%s: %v", domainerrors.ErrConcurrentUpdate, osID, err)
+			return fmt.Errorf("%w: os_id=%s: %w", domainerrors.ErrConcurrentUpdate, osID, err)
 		}
 		return fmt.Errorf("dynamodb: transact write: %w", err)
 	}
