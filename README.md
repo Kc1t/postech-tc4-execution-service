@@ -208,7 +208,7 @@ A coleção `postman_collection.json` cobre o fluxo do mecânico e os erros (var
 
 Para usar outro LocalStack: `LOCALSTACK_URL=http://localhost:4566 make test`.
 
-Cobertura medida com LocalStack: **95,9%** no total (domínio 99,0%, casos de uso 96,2%, adapter DynamoDB 94,6%, handlers/consumidor/config 100%). Sem LocalStack o adapter DynamoDB fica em 75,1% (só os testes de unidade do mapeamento de erros).
+Cobertura medida com LocalStack: **95,6%** no total (domínio 99,0%, casos de uso 96,2%, adapter DynamoDB 94,5%, handlers/consumidor/config 100%, contratos 93,5%). Sem LocalStack o adapter DynamoDB fica em 75,1% (só os testes de unidade do mapeamento de erros).
 
 ## Variáveis de ambiente
 
@@ -267,7 +267,7 @@ Pipeline próprio em [`.github/workflows/ci.yml`](.github/workflows/ci.yml), ind
 | `image` | build da imagem e Trivy (CRITICAL com correção bloqueia) |
 | `deploy` | só na `main`, depois de todos os anteriores e com `AWS_DEPLOY_ENABLED=true`: `terraform apply` da tabela DynamoDB, imagem no ECR, Secret e manifests no EKS, `rollout status` e smoke test em `/health/ready` pelo NLB |
 
-**Evidência de cobertura:** **95,9%** no `make cover` e 95,8% no SonarQube, com o quality gate aprovado (0 bugs, 0 vulnerabilidades, 0 code smells, 0% de duplicação). Cada execução do CI publica a cobertura e a tabela do SonarQube no resumo do job.
+**Evidência de cobertura:** **95,6%** no `make cover` e 95,3% no SonarQube, com o quality gate aprovado (0 bugs, 0 vulnerabilidades, 0 code smells, 0% de duplicação). Cada execução do CI publica a cobertura e a tabela do SonarQube no resumo do job.
 
 ## Observabilidade
 
