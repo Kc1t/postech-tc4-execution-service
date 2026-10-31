@@ -1,0 +1,709 @@
+{
+  "info": {
+    "name": "Postech TC4 - execution-service",
+    "description": "Execução e produção da OS (painel do mecânico).\n\nVariáveis:\n- base_url: http://localhost:8083 (docker-compose deste repo)\n- os_url: http://localhost:8080/api/v1 (os-service, emite o JWT)\n- token: setado pelo Login do os-service; sem o os-service, gere com `make token` e cole aqui\n- os_id: setado pela requisição Fila (primeiro item) ou pelo `scripts/seed.sh`\n\nFluxo sugerido: `make up && make seed` → Login → Fila → Iniciar diagnóstico → Concluir diagnóstico. O reparo só entra na fila depois do comando execution.StartRepair (enviado pelo os-service quando o pagamento é aprovado; localmente, `scripts/smoke.sh` mostra como publicar).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8083"
+    },
+    {
+      "key": "os_url",
+      "value": "http://localhost:8080/api/v1"
+    },
+    {
+      "key": "token",
+      "value": ""
+    },
+    {
+      "key": "os_id",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Login no os-service (admin)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  pm.collectionVariables.set('token', pm.response.json().access_token);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{os_url}}/auth/login",
+              "host": [
+                "{{os_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "description": "O execution-service valida o mesmo JWT HS256 (JWT_SECRET compartilhado). Aceita role admin ou mechanic.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@workshop.com\",\n  \"password\": \"change-me-in-production\"\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Live",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Correlation-ID",
+                "value": "postman-{{os_id}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/health/live",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "health",
+                "live"
+              ]
+            },
+            "description": "Processo de pé (liveness).",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Ready",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Correlation-ID",
+                "value": "postman-{{os_id}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/health/ready",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "health",
+                "ready"
+              ]
+            },
+            "description": "DynamoDB acessível (readiness). 503 SERVICE_UNAVAILABLE quando não.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Fila do mecânico",
+      "item": [
+        {
+          "name": "Fila (repair primeiro, depois diagnosis)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Correlation-ID",
+                "value": "postman-{{os_id}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/executions/queue?limit=50",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "executions",
+                "queue"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "50"
+                }
+              ]
+            },
+            "description": "Sem filtro: queued_repair e depois queued_diagnosis, mais antigas primeiro. Grava o primeiro os_id na variável."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const items = pm.response.json().items;",
+                  "if (items.length) pm.collectionVariables.set('os_id', items[0].os_id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Fila por status",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Correlation-ID",
+                "value": "postman-{{os_id}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/executions/queue?status=in_diagnosis",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "executions",
+                "queue"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "in_diagnosis"
+                }
+              ]
+            },
+            "description": "Lista só uma raia (status ativo)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Status final na fila (400)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Correlation-ID",
+                "value": "postman-{{os_id}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/executions/queue?status=finished",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "executions",
+                "queue"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "finished"
+                }
+              ]
+            },
+            "description": "Status final não tem fila."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+                  "pm.test('erro INVALID_STATUS', () => pm.expect(pm.response.json().error.code).to.eql('INVALID_STATUS'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Limit inválido (400)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Correlation-ID",
+                "value": "postman-{{os_id}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/executions/queue?limit=zero",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "executions",
+                "queue"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "zero"
+                }
+              ]
+            },
+            "description": "limit precisa ser inteiro positivo."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+                  "pm.test('erro VALIDATION_ERROR', () => pm.expect(pm.response.json().error.code).to.eql('VALIDATION_ERROR'));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Execução",
+      "item": [
+        {
+          "name": "Detalhe com linha do tempo",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Correlation-ID",
+                "value": "postman-{{os_id}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/executions/{{os_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "executions",
+                "{{os_id}}"
+              ]
+            },
+            "description": "Estado + linha do tempo (também usado pela API composition do os-service)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Iniciar diagnóstico",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Correlation-ID",
+                "value": "postman-{{os_id}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/executions/{{os_id}}/diagnosis/start",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "executions",
+                "{{os_id}}",
+                "diagnosis",
+                "start"
+              ]
+            },
+            "description": "queued_diagnosis → in_diagnosis. Publica execution.DiagnosisStarted."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('status in_diagnosis', () => pm.expect(pm.response.json().status).to.eql('in_diagnosis'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Diagnóstico vazio (422)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Correlation-ID",
+                "value": "postman-{{os_id}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/executions/{{os_id}}/diagnosis/complete",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "executions",
+                "{{os_id}}",
+                "diagnosis",
+                "complete"
+              ]
+            },
+            "description": "Com a execução em in_diagnosis: precisa de pelo menos um serviço ou peça.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"services\": [],\n  \"parts\": []\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 422', () => pm.response.to.have.status(422));",
+                  "pm.test('erro INVALID_DIAGNOSIS', () => pm.expect(pm.response.json().error.code).to.eql('INVALID_DIAGNOSIS'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Concluir diagnóstico",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Correlation-ID",
+                "value": "postman-{{os_id}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/executions/{{os_id}}/diagnosis/complete",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "executions",
+                "{{os_id}}",
+                "diagnosis",
+                "complete"
+              ]
+            },
+            "description": "in_diagnosis → diagnosed. Publica execution.DiagnosisCompleted (o os-service monta o orçamento a partir dele).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"services\": [\n    {\n      \"code\": 12\n    }\n  ],\n  \"parts\": [\n    {\n      \"manufacturer_code\": \"MONROE-G16\",\n      \"quantity\": 2\n    }\n  ],\n  \"notes\": \"amortecedores dianteiros vazando\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('status diagnosed', () => pm.expect(pm.response.json().status).to.eql('diagnosed'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Iniciar reparo",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Correlation-ID",
+                "value": "postman-{{os_id}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/executions/{{os_id}}/repair/start",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "executions",
+                "{{os_id}}",
+                "repair",
+                "start"
+              ]
+            },
+            "description": "queued_repair → in_repair. Publica execution.RepairStarted."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('status in_repair', () => pm.expect(pm.response.json().status).to.eql('in_repair'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Concluir reparo",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Correlation-ID",
+                "value": "postman-{{os_id}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/executions/{{os_id}}/repair/finish",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "executions",
+                "{{os_id}}",
+                "repair",
+                "finish"
+              ]
+            },
+            "description": "in_repair → finished. Publica execution.RepairFinished."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('status finished', () => pm.expect(pm.response.json().status).to.eql('finished'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Transição inválida (409)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Correlation-ID",
+                "value": "postman-{{os_id}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/executions/{{os_id}}/diagnosis/start",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "executions",
+                "{{os_id}}",
+                "diagnosis",
+                "start"
+              ]
+            },
+            "description": "Repetir a ação depois de avançar o status."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 409', () => pm.response.to.have.status(409));",
+                  "pm.test('erro INVALID_TRANSITION', () => pm.expect(pm.response.json().error.code).to.eql('INVALID_TRANSITION'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Execução inexistente (404)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Correlation-ID",
+                "value": "postman-{{os_id}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/executions/00000000-0000-0000-0000-000000000000",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "executions",
+                "00000000-0000-0000-0000-000000000000"
+              ]
+            },
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 404', () => pm.response.to.have.status(404));",
+                  "pm.test('erro EXECUTION_NOT_FOUND', () => pm.expect(pm.response.json().error.code).to.eql('EXECUTION_NOT_FOUND'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Sem token (401)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Correlation-ID",
+                "value": "postman-{{os_id}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/executions/queue",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "executions",
+                "queue"
+              ]
+            },
+            "description": "",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 401', () => pm.response.to.have.status(401));",
+                  "pm.test('erro UNAUTHORIZED', () => pm.expect(pm.response.json().error.code).to.eql('UNAUTHORIZED'));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
