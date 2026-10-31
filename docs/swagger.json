@@ -1,0 +1,872 @@
+{
+    "swagger": "2.0",
+    "info": {
+        "description": "Execução e Produção da oficina: fila de diagnóstico e reparo, consumida pelo mecânico. Parte da saga orquestrada pelo os-service (Tech Challenge FIAP SOAT — Fase 4).",
+        "title": "Execution Service API",
+        "contact": {},
+        "version": "1.0"
+    },
+    "basePath": "/",
+    "paths": {
+        "/api/v1/executions/queue": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Sem filtro: execuções em queued_repair (primeiro) e depois queued_diagnosis, mais antigas primeiro em cada raia. Com status: lista só aquela raia (status ativos: queued_diagnosis, in_diagnosis, diagnosed, queued_repair, in_repair).",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "executions"
+                ],
+                "summary": "Fila de trabalho do mecânico",
+                "parameters": [
+                    {
+                        "enum": [
+                            "queued_diagnosis",
+                            "in_diagnosis",
+                            "diagnosed",
+                            "queued_repair",
+                            "in_repair"
+                        ],
+                        "type": "string",
+                        "description": "Filtra por um status ativo",
+                        "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Máximo de itens (1-200, padrão 50)",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/executionhandler.QueueResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "VALIDATION_ERROR / INVALID_STATUS",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "UNAUTHORIZED",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "FORBIDDEN",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/executions/{os_id}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Estado atual e linha do tempo da execução da OS. Também é consumido pela API composition do os-service.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "executions"
+                ],
+                "summary": "Detalhe da execução",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ID da ordem de serviço",
+                        "name": "os_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/executionhandler.ExecutionDetailsResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "VALIDATION_ERROR",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "UNAUTHORIZED",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "FORBIDDEN",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "EXECUTION_NOT_FOUND",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/executions/{os_id}/diagnosis/complete": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "in_diagnosis → diagnosed com os serviços e peças necessários. Publica execution.DiagnosisCompleted (a saga reserva as peças e pede o orçamento).",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "executions"
+                ],
+                "summary": "Concluir diagnóstico",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ID da ordem de serviço",
+                        "name": "os_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Correlação propagada para o evento",
+                        "name": "X-Correlation-ID",
+                        "in": "header"
+                    },
+                    {
+                        "description": "Serviços e peças",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/executionhandler.CompleteDiagnosisRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/executionhandler.ExecutionResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "VALIDATION_ERROR",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "UNAUTHORIZED",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "FORBIDDEN",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "EXECUTION_NOT_FOUND",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "INVALID_TRANSITION / CONCURRENT_UPDATE",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.ErrorResponse"
+                        }
+                    },
+                    "422": {
+                        "description": "INVALID_DIAGNOSIS",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/executions/{os_id}/diagnosis/start": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "queued_diagnosis → in_diagnosis. Publica execution.DiagnosisStarted.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "executions"
+                ],
+                "summary": "Iniciar diagnóstico",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ID da ordem de serviço",
+                        "name": "os_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Correlação propagada para o evento",
+                        "name": "X-Correlation-ID",
+                        "in": "header"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/executionhandler.ExecutionResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "VALIDATION_ERROR",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "UNAUTHORIZED",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "FORBIDDEN",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "EXECUTION_NOT_FOUND",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "INVALID_TRANSITION / CONCURRENT_UPDATE",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/executions/{os_id}/repair/finish": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "in_repair → finished. Publica execution.RepairFinished.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "executions"
+                ],
+                "summary": "Concluir reparo",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ID da ordem de serviço",
+                        "name": "os_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Correlação propagada para o evento",
+                        "name": "X-Correlation-ID",
+                        "in": "header"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/executionhandler.ExecutionResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "VALIDATION_ERROR",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "UNAUTHORIZED",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "FORBIDDEN",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "EXECUTION_NOT_FOUND",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "INVALID_TRANSITION / CONCURRENT_UPDATE",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/executions/{os_id}/repair/start": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "queued_repair → in_repair. Publica execution.RepairStarted.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "executions"
+                ],
+                "summary": "Iniciar reparo",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ID da ordem de serviço",
+                        "name": "os_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Correlação propagada para o evento",
+                        "name": "X-Correlation-ID",
+                        "in": "header"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/executionhandler.ExecutionResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "VALIDATION_ERROR",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "UNAUTHORIZED",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "FORBIDDEN",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "EXECUTION_NOT_FOUND",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "INVALID_TRANSITION / CONCURRENT_UPDATE",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/health/live": {
+            "get": {
+                "description": "O processo está de pé (não verifica dependências).",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "health"
+                ],
+                "summary": "Liveness",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/healthhandler.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/health/ready": {
+            "get": {
+                "description": "Verifica as dependências (DynamoDB via DescribeTable). 503 tira o pod do Service.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "health"
+                ],
+                "summary": "Readiness",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/healthhandler.Response"
+                        }
+                    },
+                    "503": {
+                        "description": "SERVICE_UNAVAILABLE",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "definitions": {
+        "executionhandler.CompleteDiagnosisRequest": {
+            "type": "object",
+            "properties": {
+                "notes": {
+                    "type": "string",
+                    "maxLength": 2000,
+                    "example": "pastilhas dianteiras no limite"
+                },
+                "parts": {
+                    "type": "array",
+                    "maxItems": 100,
+                    "items": {
+                        "$ref": "#/definitions/executionhandler.DiagnosedPartRequest"
+                    }
+                },
+                "services": {
+                    "type": "array",
+                    "maxItems": 50,
+                    "items": {
+                        "$ref": "#/definitions/executionhandler.DiagnosedServiceRequest"
+                    }
+                }
+            }
+        },
+        "executionhandler.DiagnosedPartRequest": {
+            "type": "object",
+            "required": [
+                "manufacturer_code",
+                "quantity"
+            ],
+            "properties": {
+                "manufacturer_code": {
+                    "type": "string",
+                    "maxLength": 64,
+                    "example": "BOSCH-0986BB0"
+                },
+                "quantity": {
+                    "type": "integer",
+                    "maximum": 1000,
+                    "example": 2
+                }
+            }
+        },
+        "executionhandler.DiagnosedPartResponse": {
+            "type": "object",
+            "properties": {
+                "manufacturer_code": {
+                    "type": "string",
+                    "example": "BOSCH-0986BB0"
+                },
+                "quantity": {
+                    "type": "integer",
+                    "example": 2
+                }
+            }
+        },
+        "executionhandler.DiagnosedServiceRequest": {
+            "type": "object",
+            "required": [
+                "code"
+            ],
+            "properties": {
+                "code": {
+                    "type": "integer",
+                    "example": 10
+                }
+            }
+        },
+        "executionhandler.DiagnosedServiceResponse": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "integer",
+                    "example": 10
+                }
+            }
+        },
+        "executionhandler.DiagnosisResponse": {
+            "type": "object",
+            "properties": {
+                "completed_at": {
+                    "type": "string"
+                },
+                "notes": {
+                    "type": "string"
+                },
+                "parts": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/executionhandler.DiagnosedPartResponse"
+                    }
+                },
+                "services": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/executionhandler.DiagnosedServiceResponse"
+                    }
+                }
+            }
+        },
+        "executionhandler.ExecutionDetailsResponse": {
+            "type": "object",
+            "properties": {
+                "cancelled_at": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "diagnosed_at": {
+                    "type": "string"
+                },
+                "diagnosis": {
+                    "$ref": "#/definitions/executionhandler.DiagnosisResponse"
+                },
+                "diagnosis_started_at": {
+                    "type": "string"
+                },
+                "enqueued_at": {
+                    "type": "string"
+                },
+                "finished_at": {
+                    "type": "string"
+                },
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/executionhandler.RepairItemResponse"
+                    }
+                },
+                "notes": {
+                    "type": "string",
+                    "example": "barulho no freio"
+                },
+                "os_code": {
+                    "type": "integer",
+                    "example": 42
+                },
+                "os_id": {
+                    "type": "string",
+                    "example": "6f1c1f7e-8d0a-4c49-9d64-3b8f0a2b7c11"
+                },
+                "priority": {
+                    "type": "integer",
+                    "example": 2
+                },
+                "reason": {
+                    "type": "string"
+                },
+                "repair_started_at": {
+                    "type": "string"
+                },
+                "saga_id": {
+                    "type": "string",
+                    "example": "0b8e6c3a-2f4d-4e21-a1b7-9c0d5e6f7a81"
+                },
+                "status": {
+                    "type": "string",
+                    "example": "queued_diagnosis"
+                },
+                "timeline": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/executionhandler.TimelineEventResponse"
+                    }
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "vehicle": {
+                    "$ref": "#/definitions/executionhandler.VehicleResponse"
+                },
+                "version": {
+                    "type": "integer",
+                    "example": 1
+                }
+            }
+        },
+        "executionhandler.ExecutionResponse": {
+            "type": "object",
+            "properties": {
+                "cancelled_at": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "diagnosed_at": {
+                    "type": "string"
+                },
+                "diagnosis": {
+                    "$ref": "#/definitions/executionhandler.DiagnosisResponse"
+                },
+                "diagnosis_started_at": {
+                    "type": "string"
+                },
+                "enqueued_at": {
+                    "type": "string"
+                },
+                "finished_at": {
+                    "type": "string"
+                },
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/executionhandler.RepairItemResponse"
+                    }
+                },
+                "notes": {
+                    "type": "string",
+                    "example": "barulho no freio"
+                },
+                "os_code": {
+                    "type": "integer",
+                    "example": 42
+                },
+                "os_id": {
+                    "type": "string",
+                    "example": "6f1c1f7e-8d0a-4c49-9d64-3b8f0a2b7c11"
+                },
+                "priority": {
+                    "type": "integer",
+                    "example": 2
+                },
+                "reason": {
+                    "type": "string"
+                },
+                "repair_started_at": {
+                    "type": "string"
+                },
+                "saga_id": {
+                    "type": "string",
+                    "example": "0b8e6c3a-2f4d-4e21-a1b7-9c0d5e6f7a81"
+                },
+                "status": {
+                    "type": "string",
+                    "example": "queued_diagnosis"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "vehicle": {
+                    "$ref": "#/definitions/executionhandler.VehicleResponse"
+                },
+                "version": {
+                    "type": "integer",
+                    "example": 1
+                }
+            }
+        },
+        "executionhandler.QueueResponse": {
+            "type": "object",
+            "properties": {
+                "count": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/executionhandler.ExecutionResponse"
+                    }
+                }
+            }
+        },
+        "executionhandler.RepairItemResponse": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string",
+                    "example": "Pastilha de freio"
+                },
+                "kind": {
+                    "type": "string",
+                    "example": "part"
+                },
+                "quantity": {
+                    "type": "integer",
+                    "example": 2
+                },
+                "ref": {
+                    "type": "string",
+                    "example": "BOSCH-0986BB0"
+                },
+                "unit_price": {
+                    "type": "number",
+                    "example": 89.9
+                }
+            }
+        },
+        "executionhandler.TimelineEventResponse": {
+            "type": "object",
+            "properties": {
+                "actor_id": {
+                    "type": "string",
+                    "example": "mec-1"
+                },
+                "actor_type": {
+                    "type": "string",
+                    "example": "mechanic"
+                },
+                "details": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "from_status": {
+                    "type": "string",
+                    "example": "queued_diagnosis"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "occurred_at": {
+                    "type": "string"
+                },
+                "to_status": {
+                    "type": "string",
+                    "example": "in_diagnosis"
+                },
+                "type": {
+                    "type": "string",
+                    "example": "diagnosis_started"
+                }
+            }
+        },
+        "executionhandler.VehicleResponse": {
+            "type": "object",
+            "properties": {
+                "brand": {
+                    "type": "string",
+                    "example": "Fiat"
+                },
+                "model": {
+                    "type": "string",
+                    "example": "Uno"
+                },
+                "plate": {
+                    "type": "string",
+                    "example": "ABC1D23"
+                },
+                "year": {
+                    "type": "integer",
+                    "example": 2020
+                }
+            }
+        },
+        "healthhandler.Response": {
+            "type": "object",
+            "properties": {
+                "checks": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "status": {
+                    "type": "string",
+                    "example": "ok"
+                }
+            }
+        },
+        "httputil.ErrorBody": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "string",
+                    "example": "EXECUTION_NOT_FOUND"
+                },
+                "message": {
+                    "type": "string",
+                    "example": "execução não encontrada: os_id=..."
+                }
+            }
+        },
+        "httputil.ErrorResponse": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "$ref": "#/definitions/httputil.ErrorBody"
+                }
+            }
+        }
+    },
+    "securityDefinitions": {
+        "BearerAuth": {
+            "description": "JWT HS256 com role admin ou mechanic: \"Bearer {token}\"",
+            "type": "apiKey",
+            "name": "Authorization",
+            "in": "header"
+        }
+    }
+}

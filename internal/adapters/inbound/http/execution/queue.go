@@ -22,7 +22,7 @@ import (
 // @Failure     401 {object} httputil.ErrorResponse "UNAUTHORIZED"
 // @Failure     403 {object} httputil.ErrorResponse "FORBIDDEN"
 // @Security    BearerAuth
-// @Router      /executions/queue [get]
+// @Router      /api/v1/executions/queue [get]
 func (h *Handler) Queue(c *gin.Context) {
 	q := ports.QueueQuery{}
 	if s := c.Query("status"); s != "" {

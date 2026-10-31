@@ -22,7 +22,7 @@ import (
 // @Failure     404 {object} httputil.ErrorResponse "EXECUTION_NOT_FOUND"
 // @Failure     409 {object} httputil.ErrorResponse "INVALID_TRANSITION / CONCURRENT_UPDATE"
 // @Security    BearerAuth
-// @Router      /executions/{os_id}/diagnosis/start [post]
+// @Router      /api/v1/executions/{os_id}/diagnosis/start [post]
 func (h *Handler) BeginDiagnosis(c *gin.Context) {
 	id, ok := osID(c)
 	if !ok {
@@ -53,7 +53,7 @@ func (h *Handler) BeginDiagnosis(c *gin.Context) {
 // @Failure     409 {object} httputil.ErrorResponse "INVALID_TRANSITION / CONCURRENT_UPDATE"
 // @Failure     422 {object} httputil.ErrorResponse "INVALID_DIAGNOSIS"
 // @Security    BearerAuth
-// @Router      /executions/{os_id}/diagnosis/complete [post]
+// @Router      /api/v1/executions/{os_id}/diagnosis/complete [post]
 func (h *Handler) CompleteDiagnosis(c *gin.Context) {
 	id, ok := osID(c)
 	if !ok {

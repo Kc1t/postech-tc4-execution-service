@@ -19,7 +19,7 @@ import (
 // @Failure     403 {object} httputil.ErrorResponse "FORBIDDEN"
 // @Failure     404 {object} httputil.ErrorResponse "EXECUTION_NOT_FOUND"
 // @Security    BearerAuth
-// @Router      /executions/{os_id} [get]
+// @Router      /api/v1/executions/{os_id} [get]
 func (h *Handler) Get(c *gin.Context) {
 	id, ok := osID(c)
 	if !ok {

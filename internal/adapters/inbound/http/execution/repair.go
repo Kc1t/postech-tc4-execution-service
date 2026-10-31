@@ -21,7 +21,7 @@ import (
 // @Failure     404 {object} httputil.ErrorResponse "EXECUTION_NOT_FOUND"
 // @Failure     409 {object} httputil.ErrorResponse "INVALID_TRANSITION / CONCURRENT_UPDATE"
 // @Security    BearerAuth
-// @Router      /executions/{os_id}/repair/start [post]
+// @Router      /api/v1/executions/{os_id}/repair/start [post]
 func (h *Handler) BeginRepair(c *gin.Context) {
 	id, ok := osID(c)
 	if !ok {
@@ -49,7 +49,7 @@ func (h *Handler) BeginRepair(c *gin.Context) {
 // @Failure     404 {object} httputil.ErrorResponse "EXECUTION_NOT_FOUND"
 // @Failure     409 {object} httputil.ErrorResponse "INVALID_TRANSITION / CONCURRENT_UPDATE"
 // @Security    BearerAuth
-// @Router      /executions/{os_id}/repair/finish [post]
+// @Router      /api/v1/executions/{os_id}/repair/finish [post]
 func (h *Handler) FinishRepair(c *gin.Context) {
 	id, ok := osID(c)
 	if !ok {

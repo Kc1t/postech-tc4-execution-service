@@ -1,0 +1,589 @@
+basePath: /
+definitions:
+  executionhandler.CompleteDiagnosisRequest:
+    properties:
+      notes:
+        example: pastilhas dianteiras no limite
+        maxLength: 2000
+        type: string
+      parts:
+        items:
+          $ref: '#/definitions/executionhandler.DiagnosedPartRequest'
+        maxItems: 100
+        type: array
+      services:
+        items:
+          $ref: '#/definitions/executionhandler.DiagnosedServiceRequest'
+        maxItems: 50
+        type: array
+    type: object
+  executionhandler.DiagnosedPartRequest:
+    properties:
+      manufacturer_code:
+        example: BOSCH-0986BB0
+        maxLength: 64
+        type: string
+      quantity:
+        example: 2
+        maximum: 1000
+        type: integer
+    required:
+    - manufacturer_code
+    - quantity
+    type: object
+  executionhandler.DiagnosedPartResponse:
+    properties:
+      manufacturer_code:
+        example: BOSCH-0986BB0
+        type: string
+      quantity:
+        example: 2
+        type: integer
+    type: object
+  executionhandler.DiagnosedServiceRequest:
+    properties:
+      code:
+        example: 10
+        type: integer
+    required:
+    - code
+    type: object
+  executionhandler.DiagnosedServiceResponse:
+    properties:
+      code:
+        example: 10
+        type: integer
+    type: object
+  executionhandler.DiagnosisResponse:
+    properties:
+      completed_at:
+        type: string
+      notes:
+        type: string
+      parts:
+        items:
+          $ref: '#/definitions/executionhandler.DiagnosedPartResponse'
+        type: array
+      services:
+        items:
+          $ref: '#/definitions/executionhandler.DiagnosedServiceResponse'
+        type: array
+    type: object
+  executionhandler.ExecutionDetailsResponse:
+    properties:
+      cancelled_at:
+        type: string
+      created_at:
+        type: string
+      diagnosed_at:
+        type: string
+      diagnosis:
+        $ref: '#/definitions/executionhandler.DiagnosisResponse'
+      diagnosis_started_at:
+        type: string
+      enqueued_at:
+        type: string
+      finished_at:
+        type: string
+      items:
+        items:
+          $ref: '#/definitions/executionhandler.RepairItemResponse'
+        type: array
+      notes:
+        example: barulho no freio
+        type: string
+      os_code:
+        example: 42
+        type: integer
+      os_id:
+        example: 6f1c1f7e-8d0a-4c49-9d64-3b8f0a2b7c11
+        type: string
+      priority:
+        example: 2
+        type: integer
+      reason:
+        type: string
+      repair_started_at:
+        type: string
+      saga_id:
+        example: 0b8e6c3a-2f4d-4e21-a1b7-9c0d5e6f7a81
+        type: string
+      status:
+        example: queued_diagnosis
+        type: string
+      timeline:
+        items:
+          $ref: '#/definitions/executionhandler.TimelineEventResponse'
+        type: array
+      updated_at:
+        type: string
+      vehicle:
+        $ref: '#/definitions/executionhandler.VehicleResponse'
+      version:
+        example: 1
+        type: integer
+    type: object
+  executionhandler.ExecutionResponse:
+    properties:
+      cancelled_at:
+        type: string
+      created_at:
+        type: string
+      diagnosed_at:
+        type: string
+      diagnosis:
+        $ref: '#/definitions/executionhandler.DiagnosisResponse'
+      diagnosis_started_at:
+        type: string
+      enqueued_at:
+        type: string
+      finished_at:
+        type: string
+      items:
+        items:
+          $ref: '#/definitions/executionhandler.RepairItemResponse'
+        type: array
+      notes:
+        example: barulho no freio
+        type: string
+      os_code:
+        example: 42
+        type: integer
+      os_id:
+        example: 6f1c1f7e-8d0a-4c49-9d64-3b8f0a2b7c11
+        type: string
+      priority:
+        example: 2
+        type: integer
+      reason:
+        type: string
+      repair_started_at:
+        type: string
+      saga_id:
+        example: 0b8e6c3a-2f4d-4e21-a1b7-9c0d5e6f7a81
+        type: string
+      status:
+        example: queued_diagnosis
+        type: string
+      updated_at:
+        type: string
+      vehicle:
+        $ref: '#/definitions/executionhandler.VehicleResponse'
+      version:
+        example: 1
+        type: integer
+    type: object
+  executionhandler.QueueResponse:
+    properties:
+      count:
+        example: 1
+        type: integer
+      items:
+        items:
+          $ref: '#/definitions/executionhandler.ExecutionResponse'
+        type: array
+    type: object
+  executionhandler.RepairItemResponse:
+    properties:
+      description:
+        example: Pastilha de freio
+        type: string
+      kind:
+        example: part
+        type: string
+      quantity:
+        example: 2
+        type: integer
+      ref:
+        example: BOSCH-0986BB0
+        type: string
+      unit_price:
+        example: 89.9
+        type: number
+    type: object
+  executionhandler.TimelineEventResponse:
+    properties:
+      actor_id:
+        example: mec-1
+        type: string
+      actor_type:
+        example: mechanic
+        type: string
+      details:
+        additionalProperties:
+          type: string
+        type: object
+      from_status:
+        example: queued_diagnosis
+        type: string
+      id:
+        type: string
+      occurred_at:
+        type: string
+      to_status:
+        example: in_diagnosis
+        type: string
+      type:
+        example: diagnosis_started
+        type: string
+    type: object
+  executionhandler.VehicleResponse:
+    properties:
+      brand:
+        example: Fiat
+        type: string
+      model:
+        example: Uno
+        type: string
+      plate:
+        example: ABC1D23
+        type: string
+      year:
+        example: 2020
+        type: integer
+    type: object
+  healthhandler.Response:
+    properties:
+      checks:
+        additionalProperties:
+          type: string
+        type: object
+      status:
+        example: ok
+        type: string
+    type: object
+  httputil.ErrorBody:
+    properties:
+      code:
+        example: EXECUTION_NOT_FOUND
+        type: string
+      message:
+        example: 'execução não encontrada: os_id=...'
+        type: string
+    type: object
+  httputil.ErrorResponse:
+    properties:
+      error:
+        $ref: '#/definitions/httputil.ErrorBody'
+    type: object
+info:
+  contact: {}
+  description: 'Execução e Produção da oficina: fila de diagnóstico e reparo, consumida
+    pelo mecânico. Parte da saga orquestrada pelo os-service (Tech Challenge FIAP
+    SOAT — Fase 4).'
+  title: Execution Service API
+  version: "1.0"
+paths:
+  /api/v1/executions/{os_id}:
+    get:
+      description: Estado atual e linha do tempo da execução da OS. Também é consumido
+        pela API composition do os-service.
+      parameters:
+      - description: ID da ordem de serviço
+        in: path
+        name: os_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/executionhandler.ExecutionDetailsResponse'
+        "400":
+          description: VALIDATION_ERROR
+          schema:
+            $ref: '#/definitions/httputil.ErrorResponse'
+        "401":
+          description: UNAUTHORIZED
+          schema:
+            $ref: '#/definitions/httputil.ErrorResponse'
+        "403":
+          description: FORBIDDEN
+          schema:
+            $ref: '#/definitions/httputil.ErrorResponse'
+        "404":
+          description: EXECUTION_NOT_FOUND
+          schema:
+            $ref: '#/definitions/httputil.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Detalhe da execução
+      tags:
+      - executions
+  /api/v1/executions/{os_id}/diagnosis/complete:
+    post:
+      consumes:
+      - application/json
+      description: in_diagnosis → diagnosed com os serviços e peças necessários. Publica
+        execution.DiagnosisCompleted (a saga reserva as peças e pede o orçamento).
+      parameters:
+      - description: ID da ordem de serviço
+        in: path
+        name: os_id
+        required: true
+        type: string
+      - description: Correlação propagada para o evento
+        in: header
+        name: X-Correlation-ID
+        type: string
+      - description: Serviços e peças
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/executionhandler.CompleteDiagnosisRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/executionhandler.ExecutionResponse'
+        "400":
+          description: VALIDATION_ERROR
+          schema:
+            $ref: '#/definitions/httputil.ErrorResponse'
+        "401":
+          description: UNAUTHORIZED
+          schema:
+            $ref: '#/definitions/httputil.ErrorResponse'
+        "403":
+          description: FORBIDDEN
+          schema:
+            $ref: '#/definitions/httputil.ErrorResponse'
+        "404":
+          description: EXECUTION_NOT_FOUND
+          schema:
+            $ref: '#/definitions/httputil.ErrorResponse'
+        "409":
+          description: INVALID_TRANSITION / CONCURRENT_UPDATE
+          schema:
+            $ref: '#/definitions/httputil.ErrorResponse'
+        "422":
+          description: INVALID_DIAGNOSIS
+          schema:
+            $ref: '#/definitions/httputil.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Concluir diagnóstico
+      tags:
+      - executions
+  /api/v1/executions/{os_id}/diagnosis/start:
+    post:
+      description: queued_diagnosis → in_diagnosis. Publica execution.DiagnosisStarted.
+      parameters:
+      - description: ID da ordem de serviço
+        in: path
+        name: os_id
+        required: true
+        type: string
+      - description: Correlação propagada para o evento
+        in: header
+        name: X-Correlation-ID
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/executionhandler.ExecutionResponse'
+        "400":
+          description: VALIDATION_ERROR
+          schema:
+            $ref: '#/definitions/httputil.ErrorResponse'
+        "401":
+          description: UNAUTHORIZED
+          schema:
+            $ref: '#/definitions/httputil.ErrorResponse'
+        "403":
+          description: FORBIDDEN
+          schema:
+            $ref: '#/definitions/httputil.ErrorResponse'
+        "404":
+          description: EXECUTION_NOT_FOUND
+          schema:
+            $ref: '#/definitions/httputil.ErrorResponse'
+        "409":
+          description: INVALID_TRANSITION / CONCURRENT_UPDATE
+          schema:
+            $ref: '#/definitions/httputil.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Iniciar diagnóstico
+      tags:
+      - executions
+  /api/v1/executions/{os_id}/repair/finish:
+    post:
+      description: in_repair → finished. Publica execution.RepairFinished.
+      parameters:
+      - description: ID da ordem de serviço
+        in: path
+        name: os_id
+        required: true
+        type: string
+      - description: Correlação propagada para o evento
+        in: header
+        name: X-Correlation-ID
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/executionhandler.ExecutionResponse'
+        "400":
+          description: VALIDATION_ERROR
+          schema:
+            $ref: '#/definitions/httputil.ErrorResponse'
+        "401":
+          description: UNAUTHORIZED
+          schema:
+            $ref: '#/definitions/httputil.ErrorResponse'
+        "403":
+          description: FORBIDDEN
+          schema:
+            $ref: '#/definitions/httputil.ErrorResponse'
+        "404":
+          description: EXECUTION_NOT_FOUND
+          schema:
+            $ref: '#/definitions/httputil.ErrorResponse'
+        "409":
+          description: INVALID_TRANSITION / CONCURRENT_UPDATE
+          schema:
+            $ref: '#/definitions/httputil.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Concluir reparo
+      tags:
+      - executions
+  /api/v1/executions/{os_id}/repair/start:
+    post:
+      description: queued_repair → in_repair. Publica execution.RepairStarted.
+      parameters:
+      - description: ID da ordem de serviço
+        in: path
+        name: os_id
+        required: true
+        type: string
+      - description: Correlação propagada para o evento
+        in: header
+        name: X-Correlation-ID
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/executionhandler.ExecutionResponse'
+        "400":
+          description: VALIDATION_ERROR
+          schema:
+            $ref: '#/definitions/httputil.ErrorResponse'
+        "401":
+          description: UNAUTHORIZED
+          schema:
+            $ref: '#/definitions/httputil.ErrorResponse'
+        "403":
+          description: FORBIDDEN
+          schema:
+            $ref: '#/definitions/httputil.ErrorResponse'
+        "404":
+          description: EXECUTION_NOT_FOUND
+          schema:
+            $ref: '#/definitions/httputil.ErrorResponse'
+        "409":
+          description: INVALID_TRANSITION / CONCURRENT_UPDATE
+          schema:
+            $ref: '#/definitions/httputil.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Iniciar reparo
+      tags:
+      - executions
+  /api/v1/executions/queue:
+    get:
+      description: 'Sem filtro: execuções em queued_repair (primeiro) e depois queued_diagnosis,
+        mais antigas primeiro em cada raia. Com status: lista só aquela raia (status
+        ativos: queued_diagnosis, in_diagnosis, diagnosed, queued_repair, in_repair).'
+      parameters:
+      - description: Filtra por um status ativo
+        enum:
+        - queued_diagnosis
+        - in_diagnosis
+        - diagnosed
+        - queued_repair
+        - in_repair
+        in: query
+        name: status
+        type: string
+      - description: Máximo de itens (1-200, padrão 50)
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/executionhandler.QueueResponse'
+        "400":
+          description: VALIDATION_ERROR / INVALID_STATUS
+          schema:
+            $ref: '#/definitions/httputil.ErrorResponse'
+        "401":
+          description: UNAUTHORIZED
+          schema:
+            $ref: '#/definitions/httputil.ErrorResponse'
+        "403":
+          description: FORBIDDEN
+          schema:
+            $ref: '#/definitions/httputil.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Fila de trabalho do mecânico
+      tags:
+      - executions
+  /health/live:
+    get:
+      description: O processo está de pé (não verifica dependências).
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/healthhandler.Response'
+      summary: Liveness
+      tags:
+      - health
+  /health/ready:
+    get:
+      description: Verifica as dependências (DynamoDB via DescribeTable). 503 tira
+        o pod do Service.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/healthhandler.Response'
+        "503":
+          description: SERVICE_UNAVAILABLE
+          schema:
+            $ref: '#/definitions/httputil.ErrorResponse'
+      summary: Readiness
+      tags:
+      - health
+securityDefinitions:
+  BearerAuth:
+    description: 'JWT HS256 com role admin ou mechanic: "Bearer {token}"'
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"
