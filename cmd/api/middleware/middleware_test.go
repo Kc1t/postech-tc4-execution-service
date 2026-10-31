@@ -118,7 +118,11 @@ func TestCorrelationID(t *testing.T) {
 	r := gin.New()
 	r.Use(CorrelationID())
 	r.GET("/x", func(c *gin.Context) { c.String(http.StatusOK, c.GetString(httputil.CtxCorrelationID)) })
+	r.GET("/ctx", func(c *gin.Context) { c.String(http.StatusOK, logger.CorrelationID(c.Request.Context())) })
 
+	if w := serve(r, http.MethodGet, "/ctx", map[string]string{CorrelationHeader: "abc-123"}); w.Body.String() != "abc-123" {
+		t.Fatalf("a correlação também vai para o contexto da requisição: %q", w.Body.String())
+	}
 	w := serve(r, http.MethodGet, "/x", map[string]string{CorrelationHeader: "abc-123"})
 	if w.Body.String() != "abc-123" || w.Header().Get(CorrelationHeader) != "abc-123" {
 		t.Fatalf("deve reaproveitar o header: %q %q", w.Body.String(), w.Header().Get(CorrelationHeader))

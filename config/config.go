@@ -6,7 +6,6 @@ package config
 import (
 	"errors"
 	"fmt"
-	"strconv"
 	"strings"
 	"time"
 
@@ -16,10 +15,20 @@ import (
 
 type AppEnv string
 
+// Mesmos valores do os-service (o pipeline usa APP_ENV=prod); "production" também é aceito.
 const (
 	EnvDevelopment AppEnv = "development"
-	EnvProduction  AppEnv = "production"
+	EnvProduction  AppEnv = "prod"
 )
+
+func parseAppEnv(v string) AppEnv {
+	switch strings.ToLower(strings.TrimSpace(v)) {
+	case "prod", "production":
+		return EnvProduction
+	default:
+		return EnvDevelopment
+	}
+}
 
 // DefaultJWTSecret é o segredo de desenvolvimento; recusado em produção.
 const DefaultJWTSecret = "change-me-in-production"
@@ -55,21 +64,21 @@ func Load() *Config {
 	_ = godotenv.Load()
 	return &Config{
 		AppPort:                 env.GetOrDefault("APP_PORT", "8080"),
-		AppEnv:                  AppEnv(env.GetOrDefault("APP_ENV", string(EnvDevelopment))),
+		AppEnv:                  parseAppEnv(env.GetOrDefault("APP_ENV", string(EnvDevelopment))),
 		LogLevel:                env.GetOrDefault("LOG_LEVEL", "info"),
 		NewRelicAppName:         env.GetOrDefault("NEW_RELIC_APP_NAME", "execution-service"),
 		NewRelicLicenseKey:      env.GetOrDefault("NEW_RELIC_LICENSE_KEY", ""),
 		JWTSecret:               env.GetOrDefault("JWT_SECRET", DefaultJWTSecret),
-		CORSAllowedOrigins:      splitList(env.GetOrDefault("CORS_ALLOWED_ORIGINS", "http://localhost:3000")),
+		CORSAllowedOrigins:      env.GetListOrDefault("CORS_ALLOWED_ORIGINS", []string{"http://localhost:3000"}),
 		AWSRegion:               env.GetOrDefault("AWS_REGION", "us-east-1"),
 		AWSEndpointURL:          env.GetOrDefault("AWS_ENDPOINT_URL", ""),
 		DynamoDBTable:           env.GetOrDefault("DYNAMODB_TABLE", "executions"),
 		SQSExecutionCommandsURL: env.GetOrDefault("SQS_EXECUTION_COMMANDS_URL", ""),
 		SNSExecutionEventsARN:   env.GetOrDefault("SNS_EXECUTION_EVENTS_ARN", ""),
 		MaxConcurrentRepairs:    env.GetIntOrDefault("MAX_CONCURRENT_REPAIRS", 10),
-		FaultInjectionEnabled:   boolOrDefault("FAULT_INJECTION_ENABLED", false),
-		OutboxRelayInterval:     time.Duration(env.GetIntOrDefault("OUTBOX_RELAY_INTERVAL_MS", 500)) * time.Millisecond,
-		ShutdownTimeout:         time.Duration(env.GetIntOrDefault("SHUTDOWN_TIMEOUT_SECONDS", 20)) * time.Second,
+		FaultInjectionEnabled:   env.GetBoolOrDefault("FAULT_INJECTION_ENABLED", false),
+		OutboxRelayInterval:     env.GetDurationOrDefault("OUTBOX_POLL_INTERVAL", 500*time.Millisecond),
+		ShutdownTimeout:         env.GetDurationOrDefault("SHUTDOWN_TIMEOUT", 20*time.Second),
 	}
 }
 
@@ -98,25 +107,7 @@ func (c *Config) Validate() error {
 		}
 	}
 	if c.OutboxRelayInterval <= 0 {
-		errs = append(errs, errors.New("OUTBOX_RELAY_INTERVAL_MS deve ser positivo"))
+		errs = append(errs, errors.New("OUTBOX_POLL_INTERVAL deve ser positivo"))
 	}
 	return errors.Join(errs...)
-}
-
-func splitList(s string) []string {
-	var out []string
-	for _, p := range strings.Split(s, ",") {
-		if p = strings.TrimSpace(p); p != "" {
-			out = append(out, p)
-		}
-	}
-	return out
-}
-
-func boolOrDefault(key string, fallback bool) bool {
-	v, err := strconv.ParseBool(env.GetOrDefault(key, strconv.FormatBool(fallback)))
-	if err != nil {
-		return fallback
-	}
-	return v
 }

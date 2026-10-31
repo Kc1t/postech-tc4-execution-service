@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 
 	httputil "github.com/Kc1t/postech-tc4-execution-service/internal/adapters/inbound/http"
+	"github.com/Kc1t/postech-tc4-execution-service/pkg/logger"
 	"github.com/gin-gonic/gin"
 	"github.com/newrelic/go-agent/v3/newrelic"
 )
@@ -31,6 +32,7 @@ func CorrelationID() gin.HandlerFunc {
 			id = newCorrelationID()
 		}
 		c.Set(httputil.CtxCorrelationID, id)
+		c.Request = c.Request.WithContext(logger.WithCorrelationID(c.Request.Context(), id))
 		c.Writer.Header().Set(CorrelationHeader, id)
 		newrelic.FromContext(c.Request.Context()).AddAttribute("correlation_id", id)
 		c.Next()

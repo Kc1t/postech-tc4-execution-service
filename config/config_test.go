@@ -8,7 +8,7 @@ import (
 
 func TestLoad_Padroes(t *testing.T) {
 	for _, k := range []string{"APP_PORT", "APP_ENV", "DYNAMODB_TABLE", "MAX_CONCURRENT_REPAIRS", "FAULT_INJECTION_ENABLED",
-		"CORS_ALLOWED_ORIGINS", "OUTBOX_RELAY_INTERVAL_MS", "JWT_SECRET", "SQS_EXECUTION_COMMANDS_URL", "SNS_EXECUTION_EVENTS_ARN"} {
+		"CORS_ALLOWED_ORIGINS", "OUTBOX_POLL_INTERVAL", "JWT_SECRET", "SQS_EXECUTION_COMMANDS_URL", "SNS_EXECUTION_EVENTS_ARN"} {
 		t.Setenv(k, "")
 	}
 	c := Load()
@@ -25,8 +25,8 @@ func TestLoad_Variaveis(t *testing.T) {
 	t.Setenv("MAX_CONCURRENT_REPAIRS", "3")
 	t.Setenv("FAULT_INJECTION_ENABLED", "true")
 	t.Setenv("CORS_ALLOWED_ORIGINS", "https://a.com, https://b.com ,,")
-	t.Setenv("OUTBOX_RELAY_INTERVAL_MS", "100")
-	t.Setenv("SHUTDOWN_TIMEOUT_SECONDS", "5")
+	t.Setenv("OUTBOX_POLL_INTERVAL", "100ms")
+	t.Setenv("SHUTDOWN_TIMEOUT", "5s")
 	c := Load()
 	if c.AppPort != "9000" || c.DynamoDBTable != "exec-prod" || c.MaxConcurrentRepairs != 3 || !c.FaultInjectionEnabled ||
 		c.OutboxRelayInterval != 100*time.Millisecond || c.ShutdownTimeout != 5*time.Second {
@@ -77,5 +77,15 @@ func TestValidate(t *testing.T) {
 	dev.JWTSecret = DefaultJWTSecret
 	if err := dev.Validate(); err != nil {
 		t.Fatalf("segredo padrão é aceito em desenvolvimento: %v", err)
+	}
+}
+
+func TestLoad_AppEnv(t *testing.T) {
+	for v, want := range map[string]AppEnv{"prod": EnvProduction, "production": EnvProduction, " PROD ": EnvProduction,
+		"development": EnvDevelopment, "staging": EnvDevelopment, "": EnvDevelopment} {
+		t.Setenv("APP_ENV", v)
+		if got := Load().AppEnv; got != want {
+			t.Fatalf("APP_ENV=%q → %q, esperava %q", v, got, want)
+		}
 	}
 }
