@@ -18,6 +18,7 @@ const (
 	CodeUnauthorized       = "UNAUTHORIZED"
 	CodeForbidden          = "FORBIDDEN"
 	CodeNotFound           = "NOT_FOUND"
+	CodeMethodNotAllowed   = "METHOD_NOT_ALLOWED"
 	CodeExecutionNotFound  = "EXECUTION_NOT_FOUND"
 	CodeInvalidTransition  = "INVALID_TRANSITION"
 	CodeConcurrentUpdate   = "CONCURRENT_UPDATE"

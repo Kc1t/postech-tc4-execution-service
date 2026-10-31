@@ -53,7 +53,7 @@ func New(d Deps) *gin.Engine {
 		httputil.Abort(c, http.StatusNotFound, httputil.CodeNotFound, "rota não encontrada")
 	})
 	r.NoMethod(func(c *gin.Context) {
-		httputil.Abort(c, http.StatusMethodNotAllowed, httputil.CodeNotFound, "método não permitido nesta rota")
+		httputil.Abort(c, http.StatusMethodNotAllowed, httputil.CodeMethodNotAllowed, "método não permitido nesta rota")
 	})
 
 	d.Health.SetupRoutes(r)

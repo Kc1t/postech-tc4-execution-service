@@ -88,7 +88,7 @@ func TestRouter(t *testing.T) {
 	req := httptest.NewRequest(http.MethodDelete, "/health/live", nil)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
-	if w.Code != http.StatusMethodNotAllowed || errCode(w) == "" {
+	if w.Code != http.StatusMethodNotAllowed || errCode(w) != httputil.CodeMethodNotAllowed {
 		t.Fatalf("405 padronizado: %d", w.Code)
 	}
 	if w := get(r, "/panic", ""); w.Code != http.StatusInternalServerError || errCode(w) != httputil.CodeInternal {
