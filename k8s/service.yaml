@@ -1,0 +1,33 @@
+# Interno: API composition do os-service (EXECUTION_SERVICE_URL=http://execution-service).
+apiVersion: v1
+kind: Service
+metadata:
+  name: execution-service
+  labels:
+    app: execution-service
+spec:
+  type: ClusterIP
+  selector:
+    app: execution-service
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+---
+# Externo: NLB para o API Gateway rotear /api/v1/executions/* (painel do mecânico).
+apiVersion: v1
+kind: Service
+metadata:
+  name: execution-service-public
+  labels:
+    app: execution-service
+  annotations:
+    service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
+spec:
+  type: LoadBalancer
+  selector:
+    app: execution-service
+  ports:
+    - name: http
+      port: 80
+      targetPort: http

@@ -1,0 +1,86 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: execution-service
+  labels:
+    app: execution-service
+    app.kubernetes.io/part-of: oficina
+spec:
+  replicas: 2
+  revisionHistoryLimit: 5
+  # Rolling update sem indisponibilidade: sobe um pod novo, espera ficar ready e só então
+  # derruba um antigo. Réplicas concorrentes são seguras: o SQS entrega cada comando a um
+  # consumidor, o inbox descarta reentregas e o relay do outbox reserva itens por lease.
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: execution-service
+  template:
+    metadata:
+      labels:
+        app: execution-service
+        app.kubernetes.io/part-of: oficina
+    spec:
+      # preStop (5s) + SHUTDOWN_TIMEOUT (20s) cabem nos 30s.
+      terminationGracePeriodSeconds: 30
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: execution-service
+          image: IMAGE_PLACEHOLDER
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: execution-service-config
+            - secretRef:
+                name: execution-service-secret
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "96Mi"
+            limits:
+              cpu: "500m"
+              memory: "256Mi"
+          startupProbe:
+            httpGet:
+              path: /health/live
+              port: http
+            periodSeconds: 3
+            failureThreshold: 20
+          # ready = DynamoDB acessível (DescribeTable). Fora do ar → sai do Service, não reinicia.
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          # live = só o processo; não depende da AWS para não reiniciar em cascata.
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: http
+            periodSeconds: 20
+            timeoutSeconds: 2
+            failureThreshold: 3
+          lifecycle:
+            # Dá tempo do pod sair dos endpoints do Service antes do SIGTERM.
+            preStop:
+              exec:
+                command: ["sleep", "5"]

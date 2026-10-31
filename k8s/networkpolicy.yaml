@@ -1,0 +1,16 @@
+# Entrada só na porta HTTP: do os-service (API composition) e do NLB (API Gateway). A saída
+# fica livre porque o pod fala com DynamoDB/SQS/SNS e New Relic por endpoints públicos da AWS.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: execution-service
+spec:
+  podSelector:
+    matchLabels:
+      app: execution-service
+  policyTypes:
+    - Ingress
+  ingress:
+    - ports:
+        - port: 8080
+          protocol: TCP
