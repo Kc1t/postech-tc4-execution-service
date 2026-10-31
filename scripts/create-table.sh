@@ -15,8 +15,9 @@ ddb() { aws dynamodb "${args[@]}" "$@"; }
 if ddb describe-table --table-name "$TABLE" >/dev/null 2>&1; then
   echo "tabela ${TABLE} já existe"
 else
-  # pk/sk: STATE, EVT#..., MSG#... (inbox) e OUTBOX. gsi1 é esparso: só o item STATE de
-  # execuções ativas tem gsi1pk (STATUS#<status>) / gsi1sk (<prioridade>#<enfileirada_em>#<os_id>).
+  # Itens: EXEC#{os_id}/STATE, EXEC#{os_id}/EVT#..., OUTBOX/{ts}#{id} e MSG#.../MSG (inbox).
+  # gsi1 é esparso: só o STATE de execuções ativas tem gsi1pk=QUEUE#{status} e
+  # gsi1sk={prioridade}#{enfileirada_em}.
   ddb create-table \
     --table-name "$TABLE" \
     --attribute-definitions AttributeName=pk,AttributeType=S AttributeName=sk,AttributeType=S \
