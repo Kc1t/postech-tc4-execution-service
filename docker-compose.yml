@@ -26,7 +26,7 @@ services:
     restart: unless-stopped
 
   localstack:
-    image: localstack/localstack:4
+    image: localstack/localstack:4.14.0  # fixada: tags mais novas podem exigir LOCALSTACK_AUTH_TOKEN
     container_name: tc4-exec-localstack
     ports:
       - "${LOCALSTACK_PORT:-4568}:4566"
