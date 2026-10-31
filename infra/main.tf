@@ -3,7 +3,7 @@
 #   pk = EXEC#{os_id}  sk = STATE          estado atual da execução (com version para o lock otimista)
 #   pk = EXEC#{os_id}  sk = EVT#{ts}#{id}  linha do tempo (quem fez o quê e quando)
 #   pk = OUTBOX        sk = {ts}#{id}      eventos a publicar (gravados na mesma TransactWriteItems)
-#   pk = MSG#{id}      sk = MSG            inbox: mensagem já processada (com ttl)
+#   pk = MSG#{consumer}#{message_id}   sk = MSG   inbox: mensagem já processada (com ttl)
 #
 # gsi1 é esparso: só o STATE de execuções ativas tem gsi1pk = QUEUE#{status} e
 # gsi1sk = {prioridade}#{enfileirada_em}, o que dá a fila do mecânico já ordenada.
