@@ -2,7 +2,7 @@
 
 Microsserviço da oficina mecânica (Tech Challenge FIAP SOAT, fase 4) responsável pela **fila de trabalho do mecânico**: recebe da saga do os-service as ordens de serviço a diagnosticar e a reparar, expõe a API que o mecânico usa para avançar cada etapa e publica os eventos de progresso de volta para a saga.
 
-Go 1.25 · Gin · DynamoDB (tabela única) · SQS/SNS · New Relic · arquitetura hexagonal.
+Go 1.26 · Gin · DynamoDB (tabela única) · SQS/SNS · New Relic · arquitetura hexagonal.
 
 ## Responsabilidades
 
@@ -177,7 +177,7 @@ O `gsi1` é **esparso**: quando a execução chega a um status final o item deix
 
 ## Como rodar
 
-Pré-requisitos: Docker; para rodar fora do container, Go 1.25 e (opcional) `swag`, `mockgen` e `golangci-lint`.
+Pré-requisitos: Docker; para rodar fora do container, Go 1.26 e (opcional) `swag`, `mockgen` e `golangci-lint`.
 
 ```bash
 cp .env.example .env            # opcional; o compose já define o necessário
