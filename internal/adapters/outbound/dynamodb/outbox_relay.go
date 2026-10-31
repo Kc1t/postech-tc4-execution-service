@@ -30,14 +30,34 @@ const (
 	// do TTL removê-la (serve para auditoria e mantém a varredura curta).
 	PublishedRetention = 24 * time.Hour
 	maxErrorLength     = 500
+
+	// StuckAfter é o número de tentativas a partir do qual cada falha vira log de erro
+	// (outbox_message_stuck). Com a espera exponencial, são uns 8 minutos falhando sem parar.
+	StuckAfter = 10
+	// MaxBackoff limita a espera entre tentativas.
+	MaxBackoff = 5 * time.Minute
 )
+
+// Backoff devolve a espera antes da próxima tentativa, depois de attempts falhas:
+// 1 s, 2 s, 4 s... até MaxBackoff. Mesma regra do pkg/outbox do os e do billing.
+func Backoff(attempts int) time.Duration {
+	if attempts < 1 {
+		return 0
+	}
+	if attempts > 9 { // 2^9 s já passa de MaxBackoff; evita overflow no shift
+		return MaxBackoff
+	}
+	return min(time.Duration(1<<(attempts-1))*time.Second, MaxBackoff)
+}
 
 // Relay publica as mensagens pendentes do outbox. Mesma semântica do pkg/outbox (Postgres):
 // entrega "pelo menos uma vez", em ordem de gravação, com o contexto de trace capturado na
 // gravação reaceito numa transação de background do New Relic antes de publicar.
 //
 // No lugar do FOR UPDATE SKIP LOCKED, cada mensagem é reservada com um UpdateItem condicional
-// (lease): várias réplicas podem rodar o relay sem publicar a mesma mensagem em paralelo.
+// (lease): várias réplicas podem rodar o relay sem publicar a mesma mensagem em paralelo. Quando
+// a publicação falha, o lease passa a marcar a próxima tentativa (espera exponencial): a varredura
+// pula a mensagem até lá, então uma mensagem que não publica não ocupa o lote das outras.
 type Relay struct {
 	api      API
 	table    string
@@ -113,8 +133,6 @@ func (r *Relay) Flush(ctx context.Context) (int, error) {
 			continue // outra réplica reservou ou já publicou
 		}
 		if err := r.publish(ctx, m); err != nil {
-			r.log.Warn("outbox_publish_failed", "message_id", m.MessageID, "message_type", m.MessageType,
-				"saga_id", m.SagaID, "os_id", m.OSID, "attempts", m.Attempts+1, "error", err)
 			if rerr := r.release(ctx, m, err); rerr != nil {
 				return published, rerr
 			}
@@ -213,14 +231,19 @@ func (r *Relay) claim(ctx context.Context, m *outboxItem) (bool, error) {
 	return true, nil
 }
 
-func (r *Relay) publish(ctx context.Context, m *outboxItem) error {
+func (r *Relay) publish(ctx context.Context, m *outboxItem) (err error) {
 	env, err := contracts.Parse([]byte(m.Body))
 	if err != nil {
 		return err
 	}
 	if r.nr != nil {
 		txn := r.nr.StartTransaction("OutboxRelay/" + m.MessageType)
-		defer txn.End()
+		defer func() {
+			if err != nil {
+				txn.NoticeError(err)
+			}
+			txn.End()
+		}()
 		h := http.Header{}
 		for k, v := range m.TraceHeaders {
 			h.Set(k, v)
@@ -256,20 +279,30 @@ func (r *Relay) markPublished(ctx context.Context, m *outboxItem) error {
 	return nil
 }
 
+// release registra a falha e troca o lease pela hora da próxima tentativa.
 func (r *Relay) release(ctx context.Context, m *outboxItem, cause error) error {
 	msg := cause.Error()
 	if len(msg) > maxErrorLength {
 		msg = msg[:maxErrorLength]
 	}
+	attempts := m.Attempts + 1
+	next := r.now().Add(Backoff(attempts))
+	attrs := []any{"message_id", m.MessageID, "message_type", m.MessageType, "saga_id", m.SagaID, "os_id", m.OSID,
+		"destination", m.Destination, "attempts", attempts, "next_attempt_at", next, "error", cause}
+	if attempts >= StuckAfter {
+		r.log.Error("outbox_message_stuck", attrs...)
+	} else {
+		r.log.Warn("outbox_publish_failed", attrs...)
+	}
 	_, err := r.api.UpdateItem(ctx, &ddb.UpdateItemInput{
 		TableName:        aws.String(r.table),
 		Key:              key(m.PK, m.SK),
-		UpdateExpression: aws.String("SET #att = if_not_exists(#att, :zero) + :one, #lerr = :err REMOVE #lease, #owner"),
+		UpdateExpression: aws.String("SET #att = if_not_exists(#att, :zero) + :one, #lerr = :err, #lease = :next REMOVE #owner"),
 		ExpressionAttributeNames: map[string]string{
 			"#att": "attempts", "#lerr": "last_error", "#lease": "lease_until", "#owner": "lease_owner",
 		},
 		ExpressionAttributeValues: map[string]types.AttributeValue{
-			":zero": num(0), ":one": num(1), ":err": str(msg),
+			":zero": num(0), ":one": num(1), ":err": str(msg), ":next": num(next.UnixMilli()),
 		},
 	})
 	if err != nil {

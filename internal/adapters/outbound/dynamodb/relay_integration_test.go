@@ -102,16 +102,22 @@ func TestIntegration_RelayFalhaRegistraTentativa(t *testing.T) {
 	pub := messaging.NewMemoryPublisher()
 	pub.Err = errors.New("sns fora")
 	relay := NewRelay(testClient, repo.Table(), pub, nil, nil)
+	start := time.Now().UTC()
+	relay.now = func() time.Time { return start } // relógio parado: o LocalStack pode levar mais que a espera de 1 s
 
 	if n, err := relay.Flush(ctx); err != nil || n != 0 {
 		t.Fatalf("n=%d err=%v", n, err)
 	}
 	items := readOutbox(t, repo)
-	if len(items) != 1 || items[0].Attempts != 1 || items[0].LastError != "sns fora" || items[0].Published || items[0].LeaseUntil != 0 {
-		t.Fatalf("falha não registrada ou reserva não liberada: %+v", items)
+	if len(items) != 1 || items[0].Attempts != 1 || items[0].LastError != "sns fora" || items[0].Published || items[0].LeaseUntil == 0 {
+		t.Fatalf("falha não registrada ou sem hora da próxima tentativa: %+v", items)
 	}
 
 	pub.Err = nil
+	if n, _ := relay.Flush(ctx); n != 0 {
+		t.Fatal("não pode tentar de novo antes de a espera passar")
+	}
+	relay.now = func() time.Time { return start.Add(2 * time.Second) }
 	if n, _ := relay.Flush(ctx); n != 1 {
 		t.Fatal("deveria publicar na tentativa seguinte")
 	}
@@ -187,5 +193,43 @@ func TestIntegration_RelayRunParaComContexto(t *testing.T) {
 	<-done
 	if len(pub.Messages()) != 1 {
 		t.Fatal("relay em loop não publicou")
+	}
+}
+
+// failingPublisher falha só para as mensagens de uma OS.
+type failingPublisher struct {
+	*messaging.MemoryPublisher
+	badOS string
+}
+
+func (p failingPublisher) Publish(ctx context.Context, dest messaging.Destination, env contracts.Envelope) error {
+	if env.OSID == p.badOS {
+		return errors.New("destino fora")
+	}
+	return p.MemoryPublisher.Publish(ctx, dest, env)
+}
+
+func TestIntegration_RelayFalhaNaoTravaOLote(t *testing.T) {
+	repo := newTable(t)
+	ctx := context.Background()
+	ruim, boa := outboxMsg(t, contracts.EvtRepairFinished, "os-ruim"), outboxMsg(t, contracts.EvtRepairFinished, "os-boa")
+	if err := repo.Commit(ctx, ports.Write{Outbox: []ports.OutboxMessage{ruim}}); err != nil {
+		t.Fatal(err)
+	}
+	if err := repo.Commit(ctx, ports.Write{Outbox: []ports.OutboxMessage{boa}}); err != nil {
+		t.Fatal(err)
+	}
+	pub := failingPublisher{MemoryPublisher: messaging.NewMemoryPublisher(), badOS: "os-ruim"}
+	relay := NewRelay(testClient, repo.Table(), pub, nil, nil)
+	relay.batch = 1 // o lote só cabe a mensagem mais antiga, a que falha
+
+	if n, _ := relay.Flush(ctx); n != 0 {
+		t.Fatal("a primeira varredura pega só a mensagem que falha")
+	}
+	if n, _ := relay.Flush(ctx); n != 1 {
+		t.Fatal("em espera, a mensagem que falhou não pode ocupar o lote da próxima varredura")
+	}
+	if msgs := pub.Messages(); len(msgs) != 1 || msgs[0].Envelope.OSID != "os-boa" {
+		t.Fatalf("publicou %+v", msgs)
 	}
 }

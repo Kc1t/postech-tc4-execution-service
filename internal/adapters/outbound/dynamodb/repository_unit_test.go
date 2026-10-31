@@ -1,10 +1,14 @@
 package dynamodb
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"log/slog"
 	"reflect"
 	"sort"
+	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -340,5 +344,51 @@ func TestCommit_EnvelopeInvalido(t *testing.T) {
 	bad := ports.OutboxMessage{Envelope: contracts.Envelope{MessageID: "m", Type: "x", Payload: []byte("{")}}
 	if err := repo.Commit(context.Background(), ports.Write{Outbox: []ports.OutboxMessage{bad}}); err == nil {
 		t.Fatal("esperava erro ao serializar envelope inválido")
+	}
+}
+
+func TestBackoff(t *testing.T) {
+	cases := map[int]time.Duration{0: 0, 1: time.Second, 2: 2 * time.Second, 5: 16 * time.Second, 9: 256 * time.Second, 10: MaxBackoff, 1000: MaxBackoff}
+	for attempts, want := range cases {
+		if got := Backoff(attempts); got != want {
+			t.Errorf("Backoff(%d) = %s, esperava %s", attempts, got, want)
+		}
+	}
+}
+
+func TestRelease_AgendaProximaTentativaEAvisaMensagemTravada(t *testing.T) {
+	now := time.Date(2026, 11, 3, 9, 0, 0, 0, time.UTC)
+	var next int64
+	fake := &fakeAPI{update: func(in *ddb.UpdateItemInput) (*ddb.UpdateItemOutput, error) {
+		if v, ok := in.ExpressionAttributeValues[":next"].(*types.AttributeValueMemberN); ok {
+			next, _ = strconv.ParseInt(v.Value, 10, 64)
+		}
+		return &ddb.UpdateItemOutput{}, nil
+	}}
+	var buf bytes.Buffer
+	relay := NewRelay(fake, "t", messaging.NewMemoryPublisher(), nil, slog.New(slog.NewJSONHandler(&buf, nil)))
+	relay.now = func() time.Time { return now }
+
+	item := outboxItem{PK: pkOutbox, SK: "1#m", MessageID: "m", MessageType: "x", Attempts: 2}
+	if err := relay.release(context.Background(), &item, errors.New("sns")); err != nil {
+		t.Fatal(err)
+	}
+	if want := now.Add(4 * time.Second).UnixMilli(); next != want {
+		t.Fatalf("terceira falha espera 4 s: next=%d, esperava %d", next, want)
+	}
+	if !strings.Contains(buf.String(), `"msg":"outbox_publish_failed"`) || strings.Contains(buf.String(), "outbox_message_stuck") {
+		t.Fatalf("antes do limite é aviso: %s", buf.String())
+	}
+
+	buf.Reset()
+	item.Attempts = StuckAfter - 1
+	if err := relay.release(context.Background(), &item, errors.New("sns")); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(buf.String(), `"msg":"outbox_message_stuck"`) || !strings.Contains(buf.String(), `"level":"ERROR"`) {
+		t.Fatalf("no limite vira erro outbox_message_stuck: %s", buf.String())
+	}
+	if want := now.Add(MaxBackoff).UnixMilli(); next != want {
+		t.Fatalf("no limite a espera é a máxima: next=%d, esperava %d", next, want)
 	}
 }
