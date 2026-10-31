@@ -1,0 +1,20 @@
+# Binários e artefatos de build
+/bin/
+/execution-service
+*.exe
+*.test
+
+# Cobertura
+coverage.out
+coverage_filtered.out
+coverage*.html
+
+# Ambiente local
+.env
+*.local.env
+
+# Editores e ferramentas
+.idea/
+.vscode/
+.DS_Store
+.claude/
