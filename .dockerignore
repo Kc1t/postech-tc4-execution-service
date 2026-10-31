@@ -1,0 +1,10 @@
+.git
+.github
+.claude
+.env
+*.env.local
+coverage*
+/execution-service
+/bin
+k8s
+postman_collection.json
