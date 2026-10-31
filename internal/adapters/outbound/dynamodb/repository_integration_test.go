@@ -170,23 +170,31 @@ func TestIntegration_ConcorrenciaUmVence(t *testing.T) {
 	if err := repo.Commit(ctx, ports.Write{Execution: newExecution(t, "os-e", baseTime)}); err != nil {
 		t.Fatal(err)
 	}
+	// Todos leem a mesma versão antes de qualquer um gravar: só um commit pode vencer.
 	const workers = 5
+	copies := make([]*entities.Execution, workers)
+	for i := range copies {
+		e, err := repo.Get(ctx, "os-e")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := e.BeginDiagnosis(entities.Actor{ID: fmt.Sprintf("mec-%d", i), Type: entities.ActorMechanic}, baseTime); err != nil {
+			t.Fatal(err)
+		}
+		copies[i] = e
+	}
 	var (
 		wg        sync.WaitGroup
 		mu        sync.Mutex
 		ok, confl int
 	)
-	for i := range workers {
+	start := make(chan struct{})
+	for _, e := range copies {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			e, err := repo.Get(ctx, "os-e")
-			if err != nil {
-				t.Error(err)
-				return
-			}
-			_ = e.BeginDiagnosis(entities.Actor{ID: fmt.Sprintf("mec-%d", i), Type: entities.ActorMechanic}, baseTime)
-			err = repo.Commit(ctx, ports.Write{Execution: e})
+			<-start
+			err := repo.Commit(ctx, ports.Write{Execution: e})
 			mu.Lock()
 			defer mu.Unlock()
 			switch {
@@ -199,13 +207,17 @@ func TestIntegration_ConcorrenciaUmVence(t *testing.T) {
 			}
 		}()
 	}
+	close(start)
 	wg.Wait()
-	if ok < 1 || ok+confl != workers {
-		t.Fatalf("ok=%d conflitos=%d", ok, confl)
+	if ok != 1 || confl != workers-1 {
+		t.Fatalf("esperava 1 vencedor e %d conflitos: ok=%d conflitos=%d", workers-1, ok, confl)
 	}
-	_, timeline, _ := repo.GetWithTimeline(ctx, "os-e")
-	if len(timeline) != 1+ok {
-		t.Fatalf("cada commit confirmado grava exatamente seus eventos: %d eventos para %d commits", len(timeline), ok)
+	got, timeline, err := repo.GetWithTimeline(ctx, "os-e")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Version != 2 || got.Status != entities.StatusInDiagnosis || len(timeline) != 2 {
+		t.Fatalf("só o vencedor grava estado e evento: v%d %s, %d eventos", got.Version, got.Status, len(timeline))
 	}
 }
 
