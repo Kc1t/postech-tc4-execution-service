@@ -1,0 +1,5 @@
+**/cmd/api
+**/docs
+**/mocks
+**/mock
+**/test/component
