@@ -253,6 +253,22 @@ Toda resposta de erro tem o formato `{"error":{"code":"...","message":"..."}}`.
 | 503 | `SERVICE_UNAVAILABLE` | readiness: DynamoDB inacessível |
 | 500 | `INTERNAL_ERROR` | erro inesperado (detalhe só no log) |
 
+## CI/CD e qualidade
+
+Pipeline próprio em [`.github/workflows/ci.yml`](.github/workflows/ci.yml), independente dos outros serviços. A `main` é protegida: só recebe PR, com os jobs abaixo obrigatórios.
+
+| Job | O que faz |
+|---|---|
+| `quality` | `go mod tidy` sem diff, gofmt, `go vet` (também com a tag `component`), golangci-lint, gosec (falha a partir de severidade média), govulncheck e Swagger em dia com o código |
+| `tests` | dependências de teste em container, `make cover` e cobertura mínima de 80% |
+| `component` | teste de componente com LocalStack (`make test-component`) |
+| `sonarqube` | SonarQube Community num container do job, com quality gate próprio: cobertura ≥ 80%, duplicação ≤ 3% e nota A em confiabilidade, segurança e manutenibilidade |
+| `terraform` | fmt, validate e tfsec do `infra/` |
+| `image` | build da imagem e Trivy (CRITICAL com correção bloqueia) |
+| `deploy` | só na `main`, depois de todos os anteriores e com `AWS_DEPLOY_ENABLED=true`: `terraform apply` da tabela DynamoDB, imagem no ECR, Secret e manifests no EKS, `rollout status` e smoke test em `/health/ready` pelo NLB |
+
+**Evidência de cobertura:** **95,9%** no `make cover` e 95,8% no SonarQube, com o quality gate aprovado (0 bugs, 0 vulnerabilidades, 0 code smells, 0% de duplicação). Cada execução do CI publica a cobertura e a tabela do SonarQube no resumo do job.
+
 ## Observabilidade
 
 - Logs JSON (`log/slog`) com `correlation_id`, `user_id`/`user_role` nas requisições e `saga_id`, `os_id`, `message_id`, `message_type`, `trace.id`/`span.id` no processamento de mensagens; mudanças de status logadas como `execution_status_changed` com `from`/`to`/autor.
