@@ -1,16 +1,16 @@
-.PHONY: help run build up down logs localstack tidy swagger mocks test test-unit test-integration test-component cover lint
+.PHONY: help run build up down logs localstack seed smoke token tidy swagger mocks test test-unit test-integration test-component cover lint
 
 APP_NAME=execution-service
 MAIN=./cmd/api
-# Pacotes que contam para a cobertura (cmd/, docs/, mocks/ e o teste de componente ficam de fora).
-COVER_PKGS=$$(go list ./... | grep -v -E '/cmd/|/docs|/mocks|/test/')
+# Pacotes que contam para a cobertura (cmd/, docs/, mocks/, scripts/ e o teste de componente ficam de fora).
+COVER_PKGS=$$(go list ./... | grep -v -E '/cmd/|/docs|/mocks|/scripts|/test/')
 # LocalStack do docker-compose (porta 4568 no host). Os testes de repositório/relay e o teste de
 # componente pulam quando AWS_ENDPOINT_URL não está definida.
 LOCALSTACK_URL ?= http://localhost:4568
 AWS_TEST_ENV=AWS_ENDPOINT_URL=$(LOCALSTACK_URL) AWS_REGION=us-east-1 AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test
 
 help:
-	@echo "run | build | up | down | logs | localstack | swagger | mocks | test-unit | test | test-integration | test-component | cover | lint | tidy"
+	@echo "run | build | up | down | logs | localstack | seed | smoke | token | swagger | mocks | test-unit | test | test-integration | test-component | cover | lint | tidy"
 
 run:
 	go run $(MAIN)
@@ -30,6 +30,18 @@ logs:
 # Só o LocalStack (para os testes de integração e de componente).
 localstack:
 	docker compose up -d --wait localstack
+
+# Enfileira OS de exemplo na fila do mecânico (precisa de `make up`).
+seed:
+	./scripts/seed.sh 3
+
+# Fluxo completo (comandos na fila → API do mecânico → eventos publicados) contra `make up`.
+smoke:
+	./scripts/smoke.sh
+
+# JWT de mecânico para o Postman (ROLE=admin para administrador).
+token:
+	@go run ./scripts/gen_token.go -role $${ROLE:-mechanic}
 
 swagger:
 	swag init -g $(MAIN)/main.go -o docs --parseInternal
