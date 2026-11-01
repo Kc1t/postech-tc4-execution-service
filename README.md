@@ -267,7 +267,7 @@ O `gsi1` é **esparso**: quando a execução chega a um status final, o item dei
 ## Segurança
 
 - **JWT revalidado no serviço**: o API Gateway já passou a requisição pelo Lambda authorizer, e o serviço valida o token de novo (`cmd/api/middleware/auth.go`): só HS256, `exp` obrigatório, `sub` e `role` preenchidos. Falhou, 401. O segredo (`JWT_SECRET`) é o mesmo do os-service e da lambda-auth.
-- **Papel por rota**: toda a API de `/api/v1` é da equipe da oficina (`admin` e `mechanic`). O token de cliente, ou de qualquer outro papel, recebe **403 `FORBIDDEN`**. Como nenhuma rota é do cliente, não há regra de dono do recurso aqui: o cliente acompanha a OS pelo os-service e pelos e-mails da notification-lambda.
+- **Papel por rota**: toda a API de `/api/v1` é da equipe da oficina (`admin` e `mechanic`). O token de cliente, ou de qualquer outro papel, recebe **403 `FORBIDDEN`**. O login da equipe no os-service emite tokens `admin`; o `make token` gera um token `mechanic` para desenvolvimento. Como nenhuma rota é do cliente, não há regra de dono do recurso aqui: o cliente acompanha a OS pelo os-service e pelos e-mails da notification-lambda.
 - **Chamada entre serviços**: a API composition do os-service (`GET /service-orders/{id}/details`, rota da equipe) chama este serviço pelo ClusterIP com um JWT de serviço de 2 minutos (`sub` `service:os-service`, papel `admin`), assinado com o mesmo segredo.
 - **Autoria**: o `sub` do token fica gravado como autor em cada evento da linha do tempo.
 - **CORS** só para as origens de `CORS_ALLOWED_ORIGINS`; `*` é recusado na subida. Em `APP_ENV=prod`, o `JWT_SECRET` padrão também é recusado.
