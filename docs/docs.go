@@ -97,7 +97,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "ID da ordem de serviço",
+                        "description": "ID da ordem de serviço (UUID)",
                         "name": "os_id",
                         "in": "path",
                         "required": true
@@ -111,7 +111,7 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "VALIDATION_ERROR",
+                        "description": "VALIDATION_ERROR (os_id não é UUID ou corpo inválido)",
                         "schema": {
                             "$ref": "#/definitions/httputil.ErrorResponse"
                         }
@@ -158,7 +158,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "ID da ordem de serviço",
+                        "description": "ID da ordem de serviço (UUID)",
                         "name": "os_id",
                         "in": "path",
                         "required": true
@@ -187,7 +187,7 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "VALIDATION_ERROR",
+                        "description": "VALIDATION_ERROR (os_id não é UUID ou corpo inválido)",
                         "schema": {
                             "$ref": "#/definitions/httputil.ErrorResponse"
                         }
@@ -243,7 +243,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "ID da ordem de serviço",
+                        "description": "ID da ordem de serviço (UUID)",
                         "name": "os_id",
                         "in": "path",
                         "required": true
@@ -263,7 +263,7 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "VALIDATION_ERROR",
+                        "description": "VALIDATION_ERROR (os_id não é UUID ou corpo inválido)",
                         "schema": {
                             "$ref": "#/definitions/httputil.ErrorResponse"
                         }
@@ -313,7 +313,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "ID da ordem de serviço",
+                        "description": "ID da ordem de serviço (UUID)",
                         "name": "os_id",
                         "in": "path",
                         "required": true
@@ -333,7 +333,7 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "VALIDATION_ERROR",
+                        "description": "VALIDATION_ERROR (os_id não é UUID ou corpo inválido)",
                         "schema": {
                             "$ref": "#/definitions/httputil.ErrorResponse"
                         }
@@ -383,7 +383,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "ID da ordem de serviço",
+                        "description": "ID da ordem de serviço (UUID)",
                         "name": "os_id",
                         "in": "path",
                         "required": true
@@ -403,7 +403,7 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "VALIDATION_ERROR",
+                        "description": "VALIDATION_ERROR (os_id não é UUID ou corpo inválido)",
                         "schema": {
                             "$ref": "#/definitions/httputil.ErrorResponse"
                         }
