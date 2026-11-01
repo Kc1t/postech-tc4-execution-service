@@ -61,7 +61,7 @@ func (h *Handler) CompleteDiagnosis(c *gin.Context) {
 	}
 	var req CompleteDiagnosisRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		httputil.BadRequest(c, "corpo inválido: "+err.Error())
+		httputil.BadRequest(c, "corpo inválido: "+httputil.BindingMessage(err))
 		return
 	}
 	exec, err := h.completeDiagnosis.Execute(c.Request.Context(), ports.CompleteDiagnosisInput{

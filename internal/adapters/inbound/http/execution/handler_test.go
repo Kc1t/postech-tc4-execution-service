@@ -82,6 +82,15 @@ func errorCode(t *testing.T, w *httptest.ResponseRecorder) string {
 	return resp.Error.Code
 }
 
+func errorMessage(t *testing.T, w *httptest.ResponseRecorder) string {
+	t.Helper()
+	var resp httputil.ErrorResponse
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("resposta de erro fora do padrão: %s", w.Body.String())
+	}
+	return resp.Error.Message
+}
+
 var now = time.Date(2026, 11, 4, 8, 0, 0, 0, time.UTC)
 
 func sampleExecution(status entities.Status) *entities.Execution {
@@ -273,19 +282,25 @@ func TestTransicoes(t *testing.T) {
 }
 
 func TestCompleteDiagnosis_Validacao(t *testing.T) {
-	bodies := map[string]any{
-		"json inválido":       "{",
-		"código zero":         map[string]any{"services": []map[string]any{{"code": 0}}},
-		"peça sem código":     map[string]any{"parts": []map[string]any{{"quantity": 1}}},
-		"quantidade negativa": map[string]any{"parts": []map[string]any{{"manufacturer_code": "X", "quantity": -1}}},
-		"tipo errado":         map[string]any{"services": "x"},
+	cases := map[string]struct {
+		body any
+		want string
+	}{
+		"json inválido":       {"{", "corpo inválido: JSON malformado"},
+		"código zero":         {map[string]any{"services": []map[string]any{{"code": 0}}}, "corpo inválido: services[0].code: é obrigatório"},
+		"peça sem código":     {map[string]any{"parts": []map[string]any{{"quantity": 1}}}, "corpo inválido: parts[0].manufacturer_code: é obrigatório"},
+		"quantidade negativa": {map[string]any{"parts": []map[string]any{{"manufacturer_code": "X", "quantity": -1}}}, "corpo inválido: parts[0].quantity: deve ser maior que 0"},
+		"tipo errado":         {map[string]any{"services": "x"}, "corpo inválido: services: tipo inválido, esperado lista"},
 	}
-	for name, b := range bodies {
+	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
 			f := newFixture(t, entities.ActorMechanic)
-			w := f.do(http.MethodPost, "/api/v1/executions/9b2f3c4d-0001-4e5f-8a6b-000000000001/diagnosis/complete", b)
+			w := f.do(http.MethodPost, "/api/v1/executions/9b2f3c4d-0001-4e5f-8a6b-000000000001/diagnosis/complete", tc.body)
 			if w.Code != http.StatusBadRequest || errorCode(t, w) != httputil.CodeValidation {
 				t.Fatalf("status %d: %s", w.Code, w.Body.String())
+			}
+			if msg := errorMessage(t, w); msg != tc.want {
+				t.Errorf("mensagem: esperava %q, veio %q", tc.want, msg)
 			}
 		})
 	}
