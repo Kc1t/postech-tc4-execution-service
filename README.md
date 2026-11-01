@@ -189,7 +189,13 @@ Toda resposta de erro tem o formato `{"error":{"code":"...","message":"..."}}`.
 ### Swagger e Postman
 
 - **Swagger**: [`docs/swagger.yaml`](docs/swagger.yaml) e [`docs/swagger.json`](docs/swagger.json), gerados das anotações dos handlers com `make swagger`. O serviço publica a UI em `/swagger/index.html` (`http://localhost:8083/swagger/index.html` no compose). O job `quality` do CI falha se o Swagger estiver desatualizado em relação ao código.
-- **Postman**: [`postman_collection.json`](postman_collection.json), com as pastas Auth (login de admin no os-service), Health, Fila do mecânico e Execução, incluindo os casos 400, 401, 404, 409 e 422. Variáveis: `base_url` (padrão `http://localhost:8083`), `os_url` (os-service, padrão `http://localhost:8080/api/v1`), `token` e `os_id`. Para usar sem o os-service: `make up && make seed`, gere o token com `make token` (mecânico) ou `ROLE=admin make token`, cole em `token` e pegue um `os_id` na requisição da fila.
+- **Postman**: [`postman_collection.json`](postman_collection.json) tem teste em toda requisição (72 requisições, 172 asserções) e roda sozinha. A pasta 0 faz login no os-service, cria cliente, veículo e catálogo e abre as cinco OS da saga; a pasta 3 faz no billing a decisão do cliente e o pagamento simulado. O resto é deste serviço:
+  - acesso: sem token → 401, JWT de cliente → 403;
+  - fila do mecânico: status final ou desconhecido → 400, `limit` inválido → 400;
+  - diagnóstico: transição fora de ordem → 409, diagnóstico vazio → 422, `os_id` que não é UUID → 400, inexistente → 404;
+  - reparo e estado final das execuções compensadas (`rejected` e `cancelled`).
+
+  As esperas da saga são polling na própria requisição. Com a stack de [`postech-tc4-infra-k8s/local`](https://github.com/Kc1t/postech-tc4-infra-k8s/tree/main/local) no ar (`make up && make lambdas && make gateway`), rode no Collection Runner; `make postman` lá roda as três collections encadeadas. `make seed` e `make token` continuam úteis para testar este serviço sem o os-service.
 
 ### Mensagens consumidas (fila `execution-commands`)
 
