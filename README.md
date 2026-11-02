@@ -21,7 +21,7 @@ Tech Challenge Fase 4, FIAP Pós Tech SOAT. Go 1.26, Gin, DynamoDB (tabela únic
 | Dockerfile e manifestos Kubernetes | [`Dockerfile`](Dockerfile) e [`k8s/`](k8s/README.md) ([CI/CD e deploy](#cicd-e-deploy)) |
 | Banco próprio | tabela DynamoDB `executions`, criada por [`infra/`](infra/) ([Banco e modelo de dados](#banco-e-modelo-de-dados)) |
 | Pipeline de CI/CD | [`.github/workflows/ci.yml`](.github/workflows/ci.yml) |
-| Evidência de cobertura | **95,6%** no `go test` e **95,3%** no SonarQube, publicados no resumo de cada [execução do CI](https://github.com/Kc1t/postech-tc4-execution-service/actions/workflows/ci.yml) ([Testes](#testes-e-evidência-de-cobertura)) |
+| Evidência de cobertura | **95,8%** no `go test` e **96,8%** no SonarQube, publicados no resumo de cada [execução do CI](https://github.com/Kc1t/postech-tc4-execution-service/actions/workflows/ci.yml) ([Testes](#testes-e-evidência-de-cobertura)) |
 | Documentação da arquitetura do serviço | este README, de [Responsabilidades](#responsabilidades) a [Decisões e limitações](#decisões-e-limitações) |
 | Swagger e Postman | [`docs/swagger.yaml`](docs/swagger.yaml), servido em `/swagger/index.html`, e [`postman_collection.json`](postman_collection.json) ([Swagger e Postman](#swagger-e-postman)) |
 
@@ -381,7 +381,7 @@ Cobertura por pacote (`make cover` com LocalStack, mesma medição do CI):
 | handlers HTTP, consumidor e `config` | 100% |
 | chassis `pkg/` | `contracts` 93,5%, `httpclient` 94,9%, `messaging` 94,2%, `awsx` e `logger` 80%, `env` e `observability` 100% |
 
-**Evidência de cobertura:** **95,6%** no `go test` (`make cover`) e **95,3%** no SonarQube, com o quality gate aprovado (0 bugs, 0 vulnerabilidades, 0 code smells, 0% de duplicação). Cada execução do [CI](https://github.com/Kc1t/postech-tc4-execution-service/actions/workflows/ci.yml) publica no resumo do job a cobertura (job `tests`) e a tabela do SonarQube (job `sonarqube`); o pipeline reprova abaixo de 80%.
+**Evidência de cobertura:** **95,8%** no `go test` (`make cover`) e **96,8%** no SonarQube, com o quality gate aprovado (0 bugs, 0 vulnerabilidades, 0 code smells, 0% de duplicação). Cada execução do [CI](https://github.com/Kc1t/postech-tc4-execution-service/actions/workflows/ci.yml) publica no resumo do job a cobertura (job `tests`) e a tabela do SonarQube (job `sonarqube`); o pipeline reprova abaixo de 80%.
 
 ## CI/CD e deploy
 
