@@ -12,9 +12,9 @@ import (
 // @Description Estado atual e linha do tempo da execução da OS. Também é consumido pela API composition do os-service.
 // @Tags        executions
 // @Produce     json
-// @Param       os_id path string true "ID da ordem de serviço"
+// @Param       os_id path string true "ID da ordem de serviço (UUID)"
 // @Success     200 {object} ExecutionDetailsResponse
-// @Failure     400 {object} httputil.ErrorResponse "VALIDATION_ERROR"
+// @Failure     400 {object} httputil.ErrorResponse "VALIDATION_ERROR (os_id não é UUID ou corpo inválido)"
 // @Failure     401 {object} httputil.ErrorResponse "UNAUTHORIZED"
 // @Failure     403 {object} httputil.ErrorResponse "FORBIDDEN"
 // @Failure     404 {object} httputil.ErrorResponse "EXECUTION_NOT_FOUND"

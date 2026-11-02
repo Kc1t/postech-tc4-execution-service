@@ -9,10 +9,9 @@ import (
 	"github.com/Kc1t/postech-tc4-execution-service/internal/domain/entities"
 	"github.com/Kc1t/postech-tc4-execution-service/internal/ports"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/newrelic/go-agent/v3/newrelic"
 )
-
-const maxOSIDLength = 64
 
 // Handler agrupa os casos de uso usados pelas rotas.
 type Handler struct {
@@ -56,11 +55,12 @@ func (h *Handler) SetupRoutes(rg *gin.RouterGroup) {
 	g.POST("/:os_id/repair/finish", h.FinishRepair)
 }
 
-// osID lê e valida o parâmetro de rota; responde 400 e devolve false se inválido.
+// osID lê e valida o parâmetro de rota: o id da OS vem do os-service e é sempre UUID. Responde
+// 400 e devolve false se for outra coisa, sem consultar o DynamoDB.
 func osID(c *gin.Context) (string, bool) {
 	id := strings.TrimSpace(c.Param("os_id"))
-	if id == "" || len(id) > maxOSIDLength {
-		httputil.BadRequest(c, "os_id inválido")
+	if uuid.Validate(id) != nil {
+		httputil.BadRequest(c, "os_id deve ser um UUID")
 		return "", false
 	}
 	newrelic.FromContext(c.Request.Context()).AddAttribute("os_id", id)
