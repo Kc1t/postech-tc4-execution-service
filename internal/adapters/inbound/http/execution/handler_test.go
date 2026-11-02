@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -81,12 +82,21 @@ func errorCode(t *testing.T, w *httptest.ResponseRecorder) string {
 	return resp.Error.Code
 }
 
+func errorMessage(t *testing.T, w *httptest.ResponseRecorder) string {
+	t.Helper()
+	var resp httputil.ErrorResponse
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("resposta de erro fora do padrão: %s", w.Body.String())
+	}
+	return resp.Error.Message
+}
+
 var now = time.Date(2026, 11, 4, 8, 0, 0, 0, time.UTC)
 
 func sampleExecution(status entities.Status) *entities.Execution {
 	started := now.Add(time.Minute)
 	return &entities.Execution{
-		OSID: "os-1", OSCode: 42, SagaID: "saga-1", Status: status,
+		OSID: "9b2f3c4d-0001-4e5f-8a6b-000000000001", OSCode: 42, SagaID: "saga-1", Status: status,
 		Vehicle:    entities.Vehicle{Plate: "ABC1D23", Brand: "Fiat", Model: "Uno", Year: 2020},
 		Diagnosis:  &entities.Diagnosis{Services: []entities.DiagnosedService{{Code: 10}}, Parts: []entities.DiagnosedPart{{ManufacturerCode: "P-1", Quantity: 2}}, CompletedAt: now},
 		Items:      []entities.RepairItem{{Kind: "part", Ref: "P-1", Description: "Peça", Quantity: 2, UnitPrice: 10.5}},
@@ -145,7 +155,7 @@ func TestQueue_Erros(t *testing.T) {
 
 func TestGet(t *testing.T) {
 	f := newFixture(t, "mechanic")
-	f.get.EXPECT().Execute(gomock.Any(), "os-1").Return(&ports.ExecutionDetails{
+	f.get.EXPECT().Execute(gomock.Any(), "9b2f3c4d-0001-4e5f-8a6b-000000000001").Return(&ports.ExecutionDetails{
 		Execution: sampleExecution(entities.StatusInDiagnosis),
 		Timeline: []entities.TimelineEvent{{
 			ID: "e1", Type: entities.EventDiagnosisStarted, From: entities.StatusQueuedDiagnosis, To: entities.StatusInDiagnosis,
@@ -153,13 +163,13 @@ func TestGet(t *testing.T) {
 		}},
 	}, nil)
 
-	w := f.do(http.MethodGet, "/api/v1/executions/os-1", nil)
+	w := f.do(http.MethodGet, "/api/v1/executions/9b2f3c4d-0001-4e5f-8a6b-000000000001", nil)
 	if w.Code != http.StatusOK {
 		t.Fatalf("status %d: %s", w.Code, w.Body.String())
 	}
 	var resp ExecutionDetailsResponse
 	_ = json.Unmarshal(w.Body.Bytes(), &resp)
-	if resp.OSID != "os-1" || resp.Version != 3 || resp.Diagnosis == nil || resp.Diagnosis.Parts[0].Quantity != 2 ||
+	if resp.OSID != "9b2f3c4d-0001-4e5f-8a6b-000000000001" || resp.Version != 3 || resp.Diagnosis == nil || resp.Diagnosis.Parts[0].Quantity != 2 ||
 		len(resp.Items) != 1 || resp.Items[0].UnitPrice != 10.5 || resp.DiagnosisStartedAt == nil {
 		t.Fatalf("estado errado: %+v", resp)
 	}
@@ -170,18 +180,21 @@ func TestGet(t *testing.T) {
 
 func TestGet_Erros(t *testing.T) {
 	f := newFixture(t, "mechanic")
-	f.get.EXPECT().Execute(gomock.Any(), "nada").Return(nil, domainerrors.ErrNotFound)
-	w := f.do(http.MethodGet, "/api/v1/executions/nada", nil)
+	f.get.EXPECT().Execute(gomock.Any(), "9b2f3c4d-0002-4e5f-8a6b-000000000002").Return(nil, domainerrors.ErrNotFound)
+	w := f.do(http.MethodGet, "/api/v1/executions/9b2f3c4d-0002-4e5f-8a6b-000000000002", nil)
 	if w.Code != http.StatusNotFound || errorCode(t, w) != httputil.CodeExecutionNotFound {
 		t.Fatalf("status %d", w.Code)
 	}
-	long := make([]byte, maxOSIDLength+1)
-	for i := range long {
-		long[i] = 'a'
-	}
-	w = f.do(http.MethodGet, "/api/v1/executions/"+string(long), nil)
-	if w.Code != http.StatusBadRequest || errorCode(t, w) != httputil.CodeValidation {
-		t.Fatalf("os_id longo: %d", w.Code)
+	// Sem EXPECT: id que não é UUID para no handler, antes do caso de uso e do DynamoDB.
+	for _, bad := range []string{"nada", "123", strings.Repeat("a", 65), "9b2f3c4d-0002-4e5f-8a6b-00000000000"} {
+		w = f.do(http.MethodGet, "/api/v1/executions/"+bad, nil)
+		if w.Code != http.StatusBadRequest || errorCode(t, w) != httputil.CodeValidation {
+			t.Fatalf("os_id %q: %d", bad, w.Code)
+		}
+		w = f.do(http.MethodPost, "/api/v1/executions/"+bad+"/diagnosis/start", nil)
+		if w.Code != http.StatusBadRequest {
+			t.Fatalf("transição com os_id %q: %d", bad, w.Code)
+		}
 	}
 	w = f.do(http.MethodGet, "/api/v1/executions/%20", nil)
 	if w.Code != http.StatusBadRequest {
@@ -235,15 +248,15 @@ func TestTransicoes(t *testing.T) {
 		for _, role := range []string{entities.ActorMechanic, entities.ActorAdmin} {
 			t.Run(name+"/"+role, func(t *testing.T) {
 				f := newFixture(t, role)
-				in := ports.TransitionInput{OSID: "os-1", Actor: entities.Actor{ID: "user-7", Type: role}, CorrelationID: "corr-77"}
+				in := ports.TransitionInput{OSID: "9b2f3c4d-0001-4e5f-8a6b-000000000001", Actor: entities.Actor{ID: "user-7", Type: role}, CorrelationID: "corr-77"}
 				c.expect(f, in, sampleExecution(entities.StatusInRepair), nil)
-				w := f.do(http.MethodPost, "/api/v1/executions/os-1"+c.path, c.body)
+				w := f.do(http.MethodPost, "/api/v1/executions/9b2f3c4d-0001-4e5f-8a6b-000000000001"+c.path, c.body)
 				if w.Code != http.StatusOK {
 					t.Fatalf("status %d: %s", w.Code, w.Body.String())
 				}
 				var resp ExecutionResponse
 				_ = json.Unmarshal(w.Body.Bytes(), &resp)
-				if resp.OSID != "os-1" || resp.Status != "in_repair" {
+				if resp.OSID != "9b2f3c4d-0001-4e5f-8a6b-000000000001" || resp.Status != "in_repair" {
 					t.Fatalf("resposta errada: %+v", resp)
 				}
 			})
@@ -251,9 +264,9 @@ func TestTransicoes(t *testing.T) {
 		for _, ec := range errCases {
 			t.Run(name+"/"+ec.code, func(t *testing.T) {
 				f := newFixture(t, entities.ActorMechanic)
-				in := ports.TransitionInput{OSID: "os-1", Actor: entities.Actor{ID: "user-7", Type: entities.ActorMechanic}, CorrelationID: "corr-77"}
+				in := ports.TransitionInput{OSID: "9b2f3c4d-0001-4e5f-8a6b-000000000001", Actor: entities.Actor{ID: "user-7", Type: entities.ActorMechanic}, CorrelationID: "corr-77"}
 				c.expect(f, in, nil, ec.err)
-				w := f.do(http.MethodPost, "/api/v1/executions/os-1"+c.path, c.body)
+				w := f.do(http.MethodPost, "/api/v1/executions/9b2f3c4d-0001-4e5f-8a6b-000000000001"+c.path, c.body)
 				if w.Code != ec.status || errorCode(t, w) != ec.code {
 					t.Fatalf("status %d code %s, esperava %d %s", w.Code, errorCode(t, w), ec.status, ec.code)
 				}
@@ -269,26 +282,32 @@ func TestTransicoes(t *testing.T) {
 }
 
 func TestCompleteDiagnosis_Validacao(t *testing.T) {
-	bodies := map[string]any{
-		"json inválido":       "{",
-		"código zero":         map[string]any{"services": []map[string]any{{"code": 0}}},
-		"peça sem código":     map[string]any{"parts": []map[string]any{{"quantity": 1}}},
-		"quantidade negativa": map[string]any{"parts": []map[string]any{{"manufacturer_code": "X", "quantity": -1}}},
-		"tipo errado":         map[string]any{"services": "x"},
+	cases := map[string]struct {
+		body any
+		want string
+	}{
+		"json inválido":       {"{", "corpo inválido: JSON malformado"},
+		"código zero":         {map[string]any{"services": []map[string]any{{"code": 0}}}, "corpo inválido: services[0].code: é obrigatório"},
+		"peça sem código":     {map[string]any{"parts": []map[string]any{{"quantity": 1}}}, "corpo inválido: parts[0].manufacturer_code: é obrigatório"},
+		"quantidade negativa": {map[string]any{"parts": []map[string]any{{"manufacturer_code": "X", "quantity": -1}}}, "corpo inválido: parts[0].quantity: deve ser maior que 0"},
+		"tipo errado":         {map[string]any{"services": "x"}, "corpo inválido: services: tipo inválido, esperado lista"},
 	}
-	for name, b := range bodies {
+	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
 			f := newFixture(t, entities.ActorMechanic)
-			w := f.do(http.MethodPost, "/api/v1/executions/os-1/diagnosis/complete", b)
+			w := f.do(http.MethodPost, "/api/v1/executions/9b2f3c4d-0001-4e5f-8a6b-000000000001/diagnosis/complete", tc.body)
 			if w.Code != http.StatusBadRequest || errorCode(t, w) != httputil.CodeValidation {
 				t.Fatalf("status %d: %s", w.Code, w.Body.String())
+			}
+			if msg := errorMessage(t, w); msg != tc.want {
+				t.Errorf("mensagem: esperava %q, veio %q", tc.want, msg)
 			}
 		})
 	}
 	t.Run("diagnóstico vazio vira 422 pelo domínio", func(t *testing.T) {
 		f := newFixture(t, entities.ActorMechanic)
 		f.completeDiagnosis.EXPECT().Execute(gomock.Any(), gomock.Any()).Return(nil, domainerrors.ErrInvalidDiagnosis)
-		w := f.do(http.MethodPost, "/api/v1/executions/os-1/diagnosis/complete", map[string]any{"notes": "nada"})
+		w := f.do(http.MethodPost, "/api/v1/executions/9b2f3c4d-0001-4e5f-8a6b-000000000001/diagnosis/complete", map[string]any{"notes": "nada"})
 		if w.Code != http.StatusUnprocessableEntity || errorCode(t, w) != httputil.CodeInvalidDiagnosis {
 			t.Fatalf("status %d", w.Code)
 		}
