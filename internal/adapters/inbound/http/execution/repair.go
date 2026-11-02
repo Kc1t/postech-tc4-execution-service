@@ -12,10 +12,10 @@ import (
 // @Description queued_repair → in_repair. Publica execution.RepairStarted.
 // @Tags        executions
 // @Produce     json
-// @Param       os_id path string true "ID da ordem de serviço"
+// @Param       os_id path string true "ID da ordem de serviço (UUID)"
 // @Param       X-Correlation-ID header string false "Correlação propagada para o evento"
 // @Success     200 {object} ExecutionResponse
-// @Failure     400 {object} httputil.ErrorResponse "VALIDATION_ERROR"
+// @Failure     400 {object} httputil.ErrorResponse "VALIDATION_ERROR (os_id não é UUID ou corpo inválido)"
 // @Failure     401 {object} httputil.ErrorResponse "UNAUTHORIZED"
 // @Failure     403 {object} httputil.ErrorResponse "FORBIDDEN"
 // @Failure     404 {object} httputil.ErrorResponse "EXECUTION_NOT_FOUND"
@@ -40,10 +40,10 @@ func (h *Handler) BeginRepair(c *gin.Context) {
 // @Description in_repair → finished. Publica execution.RepairFinished.
 // @Tags        executions
 // @Produce     json
-// @Param       os_id path string true "ID da ordem de serviço"
+// @Param       os_id path string true "ID da ordem de serviço (UUID)"
 // @Param       X-Correlation-ID header string false "Correlação propagada para o evento"
 // @Success     200 {object} ExecutionResponse
-// @Failure     400 {object} httputil.ErrorResponse "VALIDATION_ERROR"
+// @Failure     400 {object} httputil.ErrorResponse "VALIDATION_ERROR (os_id não é UUID ou corpo inválido)"
 // @Failure     401 {object} httputil.ErrorResponse "UNAUTHORIZED"
 // @Failure     403 {object} httputil.ErrorResponse "FORBIDDEN"
 // @Failure     404 {object} httputil.ErrorResponse "EXECUTION_NOT_FOUND"

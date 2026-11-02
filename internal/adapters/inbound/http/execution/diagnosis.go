@@ -13,10 +13,10 @@ import (
 // @Description queued_diagnosis → in_diagnosis. Publica execution.DiagnosisStarted.
 // @Tags        executions
 // @Produce     json
-// @Param       os_id path string true "ID da ordem de serviço"
+// @Param       os_id path string true "ID da ordem de serviço (UUID)"
 // @Param       X-Correlation-ID header string false "Correlação propagada para o evento"
 // @Success     200 {object} ExecutionResponse
-// @Failure     400 {object} httputil.ErrorResponse "VALIDATION_ERROR"
+// @Failure     400 {object} httputil.ErrorResponse "VALIDATION_ERROR (os_id não é UUID ou corpo inválido)"
 // @Failure     401 {object} httputil.ErrorResponse "UNAUTHORIZED"
 // @Failure     403 {object} httputil.ErrorResponse "FORBIDDEN"
 // @Failure     404 {object} httputil.ErrorResponse "EXECUTION_NOT_FOUND"
@@ -42,11 +42,11 @@ func (h *Handler) BeginDiagnosis(c *gin.Context) {
 // @Tags        executions
 // @Accept      json
 // @Produce     json
-// @Param       os_id path string true "ID da ordem de serviço"
+// @Param       os_id path string true "ID da ordem de serviço (UUID)"
 // @Param       X-Correlation-ID header string false "Correlação propagada para o evento"
 // @Param       body body CompleteDiagnosisRequest true "Serviços e peças"
 // @Success     200 {object} ExecutionResponse
-// @Failure     400 {object} httputil.ErrorResponse "VALIDATION_ERROR"
+// @Failure     400 {object} httputil.ErrorResponse "VALIDATION_ERROR (os_id não é UUID ou corpo inválido)"
 // @Failure     401 {object} httputil.ErrorResponse "UNAUTHORIZED"
 // @Failure     403 {object} httputil.ErrorResponse "FORBIDDEN"
 // @Failure     404 {object} httputil.ErrorResponse "EXECUTION_NOT_FOUND"
@@ -61,7 +61,7 @@ func (h *Handler) CompleteDiagnosis(c *gin.Context) {
 	}
 	var req CompleteDiagnosisRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		httputil.BadRequest(c, "corpo inválido: "+err.Error())
+		httputil.BadRequest(c, "corpo inválido: "+httputil.BindingMessage(err))
 		return
 	}
 	exec, err := h.completeDiagnosis.Execute(c.Request.Context(), ports.CompleteDiagnosisInput{

@@ -279,7 +279,7 @@ paths:
       description: Estado atual e linha do tempo da execução da OS. Também é consumido
         pela API composition do os-service.
       parameters:
-      - description: ID da ordem de serviço
+      - description: ID da ordem de serviço (UUID)
         in: path
         name: os_id
         required: true
@@ -292,7 +292,7 @@ paths:
           schema:
             $ref: '#/definitions/executionhandler.ExecutionDetailsResponse'
         "400":
-          description: VALIDATION_ERROR
+          description: VALIDATION_ERROR (os_id não é UUID ou corpo inválido)
           schema:
             $ref: '#/definitions/httputil.ErrorResponse'
         "401":
@@ -319,7 +319,7 @@ paths:
       description: in_diagnosis → diagnosed com os serviços e peças necessários. Publica
         execution.DiagnosisCompleted (a saga reserva as peças e pede o orçamento).
       parameters:
-      - description: ID da ordem de serviço
+      - description: ID da ordem de serviço (UUID)
         in: path
         name: os_id
         required: true
@@ -342,7 +342,7 @@ paths:
           schema:
             $ref: '#/definitions/executionhandler.ExecutionResponse'
         "400":
-          description: VALIDATION_ERROR
+          description: VALIDATION_ERROR (os_id não é UUID ou corpo inválido)
           schema:
             $ref: '#/definitions/httputil.ErrorResponse'
         "401":
@@ -374,7 +374,7 @@ paths:
     post:
       description: queued_diagnosis → in_diagnosis. Publica execution.DiagnosisStarted.
       parameters:
-      - description: ID da ordem de serviço
+      - description: ID da ordem de serviço (UUID)
         in: path
         name: os_id
         required: true
@@ -391,7 +391,7 @@ paths:
           schema:
             $ref: '#/definitions/executionhandler.ExecutionResponse'
         "400":
-          description: VALIDATION_ERROR
+          description: VALIDATION_ERROR (os_id não é UUID ou corpo inválido)
           schema:
             $ref: '#/definitions/httputil.ErrorResponse'
         "401":
@@ -419,7 +419,7 @@ paths:
     post:
       description: in_repair → finished. Publica execution.RepairFinished.
       parameters:
-      - description: ID da ordem de serviço
+      - description: ID da ordem de serviço (UUID)
         in: path
         name: os_id
         required: true
@@ -436,7 +436,7 @@ paths:
           schema:
             $ref: '#/definitions/executionhandler.ExecutionResponse'
         "400":
-          description: VALIDATION_ERROR
+          description: VALIDATION_ERROR (os_id não é UUID ou corpo inválido)
           schema:
             $ref: '#/definitions/httputil.ErrorResponse'
         "401":
@@ -464,7 +464,7 @@ paths:
     post:
       description: queued_repair → in_repair. Publica execution.RepairStarted.
       parameters:
-      - description: ID da ordem de serviço
+      - description: ID da ordem de serviço (UUID)
         in: path
         name: os_id
         required: true
@@ -481,7 +481,7 @@ paths:
           schema:
             $ref: '#/definitions/executionhandler.ExecutionResponse'
         "400":
-          description: VALIDATION_ERROR
+          description: VALIDATION_ERROR (os_id não é UUID ou corpo inválido)
           schema:
             $ref: '#/definitions/httputil.ErrorResponse'
         "401":
