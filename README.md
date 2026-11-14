@@ -409,6 +409,15 @@ O job `deploy`:
 
 Depois do primeiro deploy, o workflow do [postech-tc4-infra-k8s](https://github.com/Kc1t/postech-tc4-infra-k8s) liga as rotas `/api/v1/executions` do API Gateway ao NLB `execution-service-public`.
 
+Para acompanhar um deploy no cluster:
+
+```bash
+aws eks update-kubeconfig --region us-east-1 --name postech-tc4-prod
+kubectl rollout status deployment/execution-service -n postech   # troca gradual dos pods
+kubectl get pods -n postech -l app=execution-service -o wide     # pods novos, com a imagem do commit
+kubectl get deployment execution-service -n postech -o jsonpath='{.spec.template.spec.containers[0].image}'
+```
+
 ### Imagem e manifestos Kubernetes
 
 [`Dockerfile`](Dockerfile) multi-stage: binário estático compilado em `golang:1.26-alpine` e executado em `alpine:3.22` com o usuário 10001 e `HEALTHCHECK` em `/health/live`. Manifestos em [`k8s/`](k8s/README.md): Deployment com 2 réplicas, `RollingUpdate` `maxSurge: 1`/`maxUnavailable: 0`, probes separadas, `runAsNonRoot` e `readOnlyRootFilesystem`; Service ClusterIP (API composition) e NLB (API Gateway); HPA de 2 a 6 réplicas, PDB e NetworkPolicy.
