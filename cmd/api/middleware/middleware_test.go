@@ -220,3 +220,17 @@ func TestCORS(t *testing.T) {
 		t.Fatal("sem Origin não há CORS")
 	}
 }
+
+func TestCORS_Curinga(t *testing.T) {
+	r := gin.New()
+	r.Use(CORS([]string{"*"}))
+	r.GET("/x", func(c *gin.Context) { c.Status(http.StatusOK) })
+	r.OPTIONS("/x", func(c *gin.Context) { c.Status(http.StatusTeapot) })
+	w := serve(r, http.MethodGet, "/x", map[string]string{"Origin": "https://qualquer.com"})
+	if w.Header().Get("Access-Control-Allow-Origin") != "https://qualquer.com" || w.Header().Get("Vary") != "Origin" {
+		t.Fatalf("\"*\" libera qualquer origem: %v", w.Header())
+	}
+	if w = serve(r, http.MethodOptions, "/x", map[string]string{"Origin": "https://outra.com"}); w.Code != http.StatusNoContent {
+		t.Fatalf("preflight com \"*\": %d", w.Code)
+	}
+}
