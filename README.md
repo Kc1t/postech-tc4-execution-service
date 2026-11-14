@@ -276,7 +276,7 @@ O `gsi1` é **esparso**: quando a execução chega a um status final, o item dei
 - **Papel por rota**: toda a API de `/api/v1` é da equipe da oficina (`admin` e `mechanic`). O token de cliente, ou de qualquer outro papel, recebe **403 `FORBIDDEN`**. O login da equipe no os-service emite tokens `admin`; o `make token` gera um token `mechanic` para desenvolvimento. Como nenhuma rota é do cliente, não há regra de dono do recurso aqui: o cliente acompanha a OS pelo os-service e pelos e-mails da notification-lambda.
 - **Chamada entre serviços**: a API composition do os-service (`GET /service-orders/{id}/details`, rota da equipe) chama este serviço pelo ClusterIP com um JWT de serviço de 2 minutos (`sub` `service:os-service`, papel `admin`), assinado com o mesmo segredo.
 - **Autoria**: o `sub` do token fica gravado como autor em cada evento da linha do tempo.
-- **CORS** só para as origens de `CORS_ALLOWED_ORIGINS`; `*` é recusado na subida. Em `APP_ENV=prod`, o `JWT_SECRET` padrão também é recusado.
+- **CORS** só para as origens de `CORS_ALLOWED_ORIGINS`; `*` sozinho libera todas (a resposta devolve a própria origem) e curinga parcial (`https://*.x.com`) é recusado na subida. Em `APP_ENV=prod`, o `JWT_SECRET` padrão também é recusado.
 - **Execução**: container sem root (UID 10001), sistema de arquivos só leitura e sem capabilities; `NetworkPolicy` com entrada só na porta 8080; segredos no `Secret` do Kubernetes criado pelo CI a partir dos GitHub Secrets; credenciais AWS pelo role do nó (LabRole, [ADR-0016](https://github.com/Kc1t/postech-tc4-os-service/blob/main/docs/adr/0016-credenciais-dos-pods-pela-labrole.md)).
 - **Injeção de falha** (`simulate_failure=repair`) só com `FAULT_INJECTION_ENABLED=true`; a subida registra `fault_injection_enabled` quando ela está ligada.
 
@@ -319,7 +319,7 @@ Alertas que cobrem o serviço (cada um com runbook em [`docs/runbooks`](https://
 | `NEW_RELIC_APP_NAME` | `execution-service` | nome da aplicação no New Relic (`execution-service-postech` no EKS) |
 | `NEW_RELIC_LICENSE_KEY` | — | sem chave, o agente fica desligado e o serviço funciona |
 | `JWT_SECRET` | `change-me-in-production` | segredo HS256 compartilhado com o os-service e a lambda-auth |
-| `CORS_ALLOWED_ORIGINS` | `http://localhost:3000` | allowlist separada por vírgula (`*` é recusado) |
+| `CORS_ALLOWED_ORIGINS` | `http://localhost:3000` | allowlist separada por vírgula (`*` libera todas) |
 | `AWS_REGION` | `us-east-1` | região |
 | `AWS_ENDPOINT_URL` | — | endpoint do LocalStack em desenvolvimento; vazio na AWS |
 | `DYNAMODB_TABLE` | `executions` | tabela única |

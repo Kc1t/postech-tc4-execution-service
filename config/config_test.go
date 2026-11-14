@@ -53,6 +53,11 @@ func TestValidate(t *testing.T) {
 	if err := valid().Validate(); err != nil {
 		t.Fatalf("config válida recusada: %v", err)
 	}
+	todas := valid()
+	todas.CORSAllowedOrigins = []string{"*"}
+	if err := todas.Validate(); err != nil {
+		t.Fatalf(`"*" libera todas as origens: %v`, err)
+	}
 	cases := map[string]func(c *Config){
 		"sem tabela":         func(c *Config) { c.DynamoDBTable = "" },
 		"sem fila":           func(c *Config) { c.SQSExecutionCommandsURL = "" },
@@ -60,7 +65,7 @@ func TestValidate(t *testing.T) {
 		"sem segredo":        func(c *Config) { c.JWTSecret = "" },
 		"segredo padrão":     func(c *Config) { c.JWTSecret = DefaultJWTSecret },
 		"capacidade zero":    func(c *Config) { c.MaxConcurrentRepairs = 0 },
-		"cors curinga":       func(c *Config) { c.CORSAllowedOrigins = []string{"*"} },
+		"cors curinga":       func(c *Config) { c.CORSAllowedOrigins = []string{"https://*.oficina.com"} },
 		"intervalo inválido": func(c *Config) { c.OutboxRelayInterval = 0 },
 	}
 	for name, mut := range cases {

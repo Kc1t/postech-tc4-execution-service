@@ -102,8 +102,9 @@ func (c *Config) Validate() error {
 		errs = append(errs, errors.New("MAX_CONCURRENT_REPAIRS deve ser positivo"))
 	}
 	for _, o := range c.CORSAllowedOrigins {
-		if o == "*" {
-			errs = append(errs, errors.New("CORS_ALLOWED_ORIGINS não aceita '*': liste as origens"))
+		if o != "*" && strings.Contains(o, "*") {
+			errs = append(errs, errors.New(`CORS_ALLOWED_ORIGINS aceita "*" sozinho (todas as origens) ou origens completas, sem curinga parcial`))
+			break
 		}
 	}
 	if c.OutboxRelayInterval <= 0 {

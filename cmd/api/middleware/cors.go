@@ -8,13 +8,19 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// CORS libera só as origens da allowlist (CORS_ALLOWED_ORIGINS), nunca "*". Requisição de
+// CORS libera só as origens da allowlist (CORS_ALLOWED_ORIGINS); um "*" na lista libera
+// qualquer origem (a resposta devolve a própria origem, com Vary: Origin). Requisição de
 // origem não listada segue sem os headers (o navegador bloqueia); preflight de origem não
 // listada recebe 403.
 func CORS(allowed []string) gin.HandlerFunc {
 	set := make(map[string]bool, len(allowed))
+	allowAll := false
 	for _, o := range allowed {
-		set[strings.TrimRight(o, "/")] = true
+		o = strings.TrimRight(strings.TrimSpace(o), "/")
+		if o == "*" {
+			allowAll = true
+		}
+		set[o] = true
 	}
 	return func(c *gin.Context) {
 		origin := c.GetHeader("Origin")
@@ -23,7 +29,7 @@ func CORS(allowed []string) gin.HandlerFunc {
 			return
 		}
 		c.Writer.Header().Add("Vary", "Origin")
-		ok := set[strings.TrimRight(origin, "/")]
+		ok := allowAll || set[strings.TrimRight(origin, "/")]
 		if ok {
 			h := c.Writer.Header()
 			h.Set("Access-Control-Allow-Origin", origin)
